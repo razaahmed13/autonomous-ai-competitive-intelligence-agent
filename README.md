@@ -94,6 +94,36 @@ Expected command: `python run_evals.py` or a clearly documented equivalent.
 - [ ] Agent usage log covering AI tools used, verification, problems, and lessons learned
 - [ ] 5-10 minute demo material covering architecture, features, AI workflow, generated report, Slack output, eval results, and future improvements
 
+## Current Phase A Usage
+
+Install dependencies and run tests:
+
+```bash
+uv sync
+uv run pytest
+```
+
+Collect raw source items into SQLite:
+
+```bash
+uv run python run.py collect
+```
+
+The current Phase A implementation supports:
+
+- Environment-driven config via `.env` / `.env.example`
+- Pydantic models for sources, raw items, deduplicated events, intelligence items, and daily briefs
+- SQLite tables for raw items, intelligence items, and source-item links
+- Default AI source definitions
+- RSS fetching and parsing
+- Basic collection pipeline orchestration
+
+The default local database path is:
+
+```text
+data/intelligence.db
+```
+
 ## Project Statement
 
 The original attached project statement is preserved at:

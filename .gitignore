@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+*.egg-info/
 .env
 
 # Local/generated runtime state
