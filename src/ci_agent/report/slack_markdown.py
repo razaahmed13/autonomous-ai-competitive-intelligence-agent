@@ -9,27 +9,27 @@ def render_slack_markdown(brief: DailyBrief) -> str:
     lines = [
         "*Daily AI Competitive Intelligence Brief*",
         f"_Date: {brief.date}_",
+        f"_{brief.selected_count} high-signal developments selected from {brief.candidate_count} candidates across {brief.source_count} sources._",
         "",
-        f"Generated from {brief.source_count} sources. Selected {brief.selected_count} high-signal developments from {brief.candidate_count} candidates.",
+        "━━━━━━━━━━━━━━━━━━━━",
         "",
     ]
     for index, item in enumerate(brief.items, start=1):
         lines.extend(
             [
                 f"*{index}. [{item.importance_score:.1f}/10] {item.title}*",
-                f"*Category:* {item.category.value}",
-                f"*Summary:* {item.summary}",
-                f"*Why it matters:* {item.why_it_matters}",
-                f"*Why it matters to Neodym:* {item.why_it_matters_to_neodym}",
-                f"*Recommended action:* {item.recommended_action}",
-                f"*Sources:* {_format_sources(item.source_links, item.source_names)}",
-                "",
-                "---",
+                f"• *Category:* {item.category.value}",
+                f"• *Summary:* {item.summary}",
+                f"• *Why it matters:* {item.why_it_matters}",
+                f"• *Why it matters to Neodym:* {item.why_it_matters_to_neodym}",
+                f"• *Recommended action:* {item.recommended_action}",
+                f"• *Sources:* {_format_sources(item.source_links, item.source_names)}",
                 "",
             ]
         )
-    lines.extend([f"*Methodology:* {brief.methodology}", ""])
-    return "\n".join(lines)
+        if index < len(brief.items):
+            lines.extend(["━━━━━━━━━━━━━━━━━━━━", ""])
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def write_slack_markdown(brief: DailyBrief, path: str | Path) -> str:

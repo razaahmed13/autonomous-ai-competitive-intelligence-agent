@@ -275,6 +275,28 @@ def test_report_writers_generate_json_and_slack_markdown(tmp_path):
     assert "*Why it matters to Neodym:* OpenAI releases major model matters to Neodym." in md_path.read_text()
 
 
+def test_slack_markdown_is_presentable_message_without_internal_methodology_or_dividers(tmp_path):
+    item = generate_intelligence_items(
+        deduplicate_raw_items([raw_item("OpenAI releases major model", "https://openai.com/model", "OpenAI")]),
+        llm_client=SequencedLLMClient(
+            [
+                {"category": "Model Release", "confidence": 0.95, "reason": "Major model release."},
+                analysis_response("OpenAI releases major model", "excellent"),
+            ]
+        ),
+    )[0]
+    brief = write_json_report([item], tmp_path / "daily_brief.json", source_count=1, candidate_count=1)
+
+    markdown = write_slack_markdown(brief, tmp_path / "daily_brief.md")
+
+    assert "*Methodology:*" not in markdown
+    assert brief.methodology not in markdown
+    assert "\n---\n" not in markdown
+    assert "━━━━━━━━" in markdown
+    assert "• *Category:* Model Release" in markdown
+    assert "• *Recommended action:*" in markdown
+
+
 def test_generate_brief_pipeline_writes_both_outputs(tmp_path):
     db_path = tmp_path / "intelligence.db"
     json_path = tmp_path / "daily_brief.json"
