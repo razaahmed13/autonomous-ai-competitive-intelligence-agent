@@ -8,6 +8,7 @@ def rank_intelligence_items(items: list[IntelligenceItem]) -> list[IntelligenceI
         items,
         key=lambda item: (
             item.importance_score,
+            item.raw_score,
             len(item.source_links),
             item.title.lower(),
         ),

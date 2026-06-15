@@ -50,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Could not generate brief: {exc}")
             print("Set AI_API_KEY/AI_MODEL for live LLM analysis, or set AI_MODEL=offline-demo for local smoke testing.")
             return 2
+        print(f"Loaded {result.raw_item_count} raw items fetched in the last {settings.brief_lookback_hours} hours.")
         print(f"Merged into {result.candidate_count} unique candidate events.")
         print(f"Selected {result.selected_count} intelligence items.")
         print(f"Wrote {result.json_path}.")

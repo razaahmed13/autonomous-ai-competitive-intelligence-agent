@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from ci_agent.config import Settings
+from ci_agent.config import Settings, load_neodym_profile
 from ci_agent.database import Database
 from ci_agent.fetchers.rss import parse_rss_feed
 from ci_agent.models import RawSourceItem, SourceConfig, SourceType
@@ -14,15 +14,27 @@ from ci_agent.sources import DEFAULT_SOURCES
 
 def test_settings_uses_defaults_and_env_overrides(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "custom.db"))
+    monkeypatch.setenv("NEODYM_PROFILE_PATH", str(tmp_path / "profile.md"))
     monkeypatch.setenv("MAX_ITEMS_PER_SOURCE", "3")
+    monkeypatch.setenv("BRIEF_LOOKBACK_HOURS", "12")
     monkeypatch.setenv("USER_AGENT", "test-agent")
 
     settings = Settings.from_env()
 
     assert settings.database_path == tmp_path / "custom.db"
+    assert settings.neodym_profile_path == tmp_path / "profile.md"
     assert settings.max_items_per_source == 3
+    assert settings.brief_lookback_hours == 12
     assert settings.user_agent == "test-agent"
     assert settings.slack_channel == "#industry-trends"
+
+
+def test_load_neodym_profile_reads_configured_markdown(tmp_path):
+    profile_path = tmp_path / "neodym.md"
+    profile_path.write_text("Neodym profile for testing.", encoding="utf-8")
+
+    assert load_neodym_profile(profile_path) == "Neodym profile for testing."
+    assert "AI consulting" in load_neodym_profile(tmp_path / "missing.md")
 
 
 def test_raw_source_item_requires_source_link_and_stable_id():
@@ -86,6 +98,30 @@ def test_database_initializes_tables_and_upserts_raw_items(tmp_path):
     assert len(stored) == 1
     assert stored[0].title == "Example item"
     assert stored[0].url == "https://example.com/item"
+
+
+def test_database_lists_only_recent_raw_items_by_fetched_at(tmp_path):
+    db = Database(tmp_path / "intelligence.db")
+    now = datetime.now(UTC)
+    recent = RawSourceItem(
+        source_name="Example",
+        source_type=SourceType.RSS,
+        title="Recent item",
+        url="https://example.com/recent",
+        fetched_at=now - timedelta(hours=2),
+    )
+    old = RawSourceItem(
+        source_name="Example",
+        source_type=SourceType.RSS,
+        title="Old item",
+        url="https://example.com/old",
+        fetched_at=now - timedelta(hours=30),
+    )
+
+    db.upsert_raw_items([recent, old])
+    stored = db.list_recent_raw_items(hours=24)
+
+    assert [item.title for item in stored] == ["Recent item"]
 
 
 def test_rss_parser_normalizes_feed_entries():

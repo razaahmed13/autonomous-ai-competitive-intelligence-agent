@@ -16,7 +16,7 @@ def render_slack_markdown(brief: DailyBrief) -> str:
     for index, item in enumerate(brief.items, start=1):
         lines.extend(
             [
-                f"*{index}. [{item.importance_score}/10] {item.title}*",
+                f"*{index}. [{item.importance_score:.1f}/10] {item.title}*",
                 f"*Category:* {item.category.value}",
                 f"*Summary:* {item.summary}",
                 f"*Why it matters:* {item.why_it_matters}",

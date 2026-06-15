@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Iterable
 
@@ -92,6 +93,21 @@ class Database:
             rows = conn.execute(
                 "SELECT * FROM raw_items ORDER BY fetched_at DESC LIMIT ?",
                 (limit,),
+            ).fetchall()
+        return [self._row_to_raw_item(row) for row in rows]
+
+    def list_recent_raw_items(self, *, hours: int = 24, limit: int = 200) -> list[RawSourceItem]:
+        self.initialize()
+        cutoff = datetime.now(UTC) - timedelta(hours=hours)
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM raw_items
+                WHERE fetched_at >= ?
+                ORDER BY fetched_at DESC
+                LIMIT ?
+                """,
+                (cutoff.isoformat(), limit),
             ).fetchall()
         return [self._row_to_raw_item(row) for row in rows]
 

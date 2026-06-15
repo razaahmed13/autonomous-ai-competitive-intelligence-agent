@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
+from .scoring import CriterionAssessment
+
 
 class SourceType(StrEnum):
     RSS = "rss"
@@ -124,12 +126,14 @@ class DedupedEvent(BaseModel):
 class IntelligenceItem(BaseModel):
     title: str
     category: IntelligenceCategory
-    importance_score: int = Field(ge=1, le=10)
+    importance_score: float = Field(ge=1, le=10)
+    raw_score: float = Field(ge=0, le=100)
     score_reason: str
     summary: str
     why_it_matters: str
     why_it_matters_to_neodym: str
     recommended_action: str
+    scoring_assessments: list[CriterionAssessment]
     source_links: list[str]
     source_names: list[str] = Field(default_factory=list)
     deduped_from_ids: list[str] = Field(default_factory=list)

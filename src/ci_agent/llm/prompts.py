@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from ..models import DedupedEvent, IntelligenceCategory
+from ..scoring import criteria_prompt_text
 
 CATEGORY_DEFINITIONS = """
 Allowed categories:
@@ -17,11 +18,11 @@ Allowed categories:
 
 
 def build_categorization_system_prompt() -> str:
-    return "You classify AI competitive intelligence events. Return strict JSON only."
+    return "You classify AI competitive intelligence events. Return valid strict JSON only."
 
 
 def build_analysis_system_prompt() -> str:
-    return "You are a source-grounded competitive intelligence analyst for Neodym. Return strict JSON only."
+    return "You are a source-grounded competitive intelligence analyst for Neodym. Return valid strict JSON only."
 
 
 def build_categorization_prompt(event: DedupedEvent) -> str:
@@ -47,7 +48,8 @@ Return JSON exactly in this shape:
 """.strip()
 
 
-def build_analysis_prompt(event: DedupedEvent, category: IntelligenceCategory) -> str:
+def build_analysis_prompt(event: DedupedEvent, category: IntelligenceCategory, neodym_profile: str | None = None) -> str:
+    neodym_profile = neodym_profile or "Neodym cares about practical AI systems, AI agents, automation, model capabilities, enterprise AI adoption, developer tooling, and measurable business impact."
     return f"""
 Analyze this AI competitive intelligence event for Neodym.
 
@@ -56,16 +58,16 @@ Rules:
 - Use only the provided source content and links.
 - Every final item must remain source-grounded.
 - Keep writing concise and executive-readable.
-- Recommended Action must be practical.
+- Recommended Action must be practical and aligned to Neodym's consulting business.
 
-Neodym working context: Neodym cares about AI products, AI agents, model capabilities, enterprise AI adoption, automation infrastructure, developer tooling, and competitive shifts in the AI ecosystem.
+Neodym profile:
+{neodym_profile}
 
-Scoring rubric:
-- Strategic relevance to Neodym: 35%
-- Market/competitive impact: 25%
-- Technical novelty: 20%
-- Urgency/timeliness: 10%
-- Source credibility: 10%
+Scoring task:
+Do not return a numeric importance score. The backend owns all score math.
+Evaluate the event against each fixed criterion and assign one allowed status plus source-grounded evidence.
+
+{criteria_prompt_text()}
 
 Canonical title: {event.canonical_title}
 Category: {category.value}
@@ -76,12 +78,18 @@ Context:
 Return JSON exactly in this shape:
 {{
   "title": "concise title",
-  "importance_score": 1,
-  "score_reason": "why this score was assigned",
   "summary": "what happened",
   "why_it_matters": "broader significance",
   "why_it_matters_to_neodym": "Why It Matters to Neodym",
-  "recommended_action": "Recommended Action"
+  "recommended_action": "Recommended Action",
+  "scoring_assessments": [
+    {{
+      "id": "neodym_relevance",
+      "status": "strong",
+      "evidence": "source-grounded evidence for this criterion",
+      "reason": "why this status was assigned"
+    }}
+  ]
 }}
 """.strip()
 

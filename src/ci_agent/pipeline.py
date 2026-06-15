@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from .config import Settings
+from .config import Settings, load_neodym_profile
 from .database import Database
 from .deduplication import deduplicate_raw_items
 from .fetchers.rss import fetch_rss_source
@@ -89,11 +89,20 @@ def generate_brief(
     settings = settings or Settings.from_env()
     database = database or Database(settings.database_path)
     database.initialize()
-    raw_items = raw_items if raw_items is not None else database.list_raw_items(limit=200)
+    raw_items = raw_items if raw_items is not None else database.list_recent_raw_items(
+        hours=settings.brief_lookback_hours,
+        limit=200,
+    )
     llm_client = llm_client or build_llm_client(settings)
+    neodym_profile = load_neodym_profile(settings.neodym_profile_path)
 
     events = deduplicate_raw_items(raw_items)
-    intelligence_items = generate_intelligence_items(events, llm_client=llm_client, max_items=max_items)
+    intelligence_items = generate_intelligence_items(
+        events,
+        llm_client=llm_client,
+        max_items=max_items,
+        neodym_profile=neodym_profile,
+    )
     source_count = len({item.source_name for item in raw_items})
     brief = write_json_report(
         intelligence_items,

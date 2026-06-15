@@ -7,8 +7,8 @@ from pathlib import Path
 from ..models import DailyBrief, IntelligenceItem
 
 METHODOLOGY = (
-    "Items are ranked by LLM-assigned importance score using a rubric based on strategic relevance to Neodym, "
-    "market impact, technical novelty, urgency, and source credibility. Ties are broken by source support."
+    "Items are ranked by a deterministic weighted score. The LLM assigns statuses for fixed criteria, "
+    "then the backend converts those statuses into a 0-100 raw score and 1-10 importance score."
 )
 
 

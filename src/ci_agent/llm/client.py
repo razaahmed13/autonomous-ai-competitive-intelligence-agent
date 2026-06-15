@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from ..config import Settings
+from ..scoring import SCORING_CRITERIA
 
 
 class LLMClient:
@@ -56,14 +57,22 @@ class OfflineDemoLLMClient(LLMClient):
         category = _demo_category(category_context)
         if "classify" in system_prompt.lower() or "categorization" in user_prompt.lower():
             return {"category": category, "confidence": 0.5, "reason": "Offline demo categorization based on the supplied title."}
+        status = _demo_status(title)
         return {
             "title": title,
-            "importance_score": _demo_score(title),
-            "score_reason": "Offline demo score based on source-grounded title/context; use AI_API_KEY for real LLM scoring.",
             "summary": f"{title} was identified from public AI sources.",
             "why_it_matters": "This development may affect AI product expectations, technical direction, or market positioning.",
             "why_it_matters_to_neodym": "Neodym should review whether this changes assumptions about agents, model capabilities, or AI infrastructure.",
             "recommended_action": "Review the linked source and decide whether a product, research, or competitive follow-up is needed.",
+            "scoring_assessments": [
+                {
+                    "id": criterion_id,
+                    "status": status,
+                    "evidence": f"Offline demo assessment for {criterion_id} based on the supplied title and source context.",
+                    "reason": "Use AI_API_KEY for source-grounded live assessment.",
+                }
+                for criterion_id in SCORING_CRITERIA
+            ],
         }
 
 
@@ -104,8 +113,8 @@ def _demo_category(text: str) -> str:
     return "Other"
 
 
-def _demo_score(title: str) -> int:
+def _demo_status(title: str) -> str:
     lower = title.lower()
     if any(word in lower for word in ["openai", "anthropic", "google", "deepmind", "model"]):
-        return 8
-    return 6
+        return "strong"
+    return "good"
