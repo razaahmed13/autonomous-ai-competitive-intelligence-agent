@@ -14,10 +14,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AI competitive intelligence agent")
     parser.add_argument(
         "command",
-        choices=["collect", "brief", "all"],
+        choices=["collect", "brief", "all", "send-slack"],
         nargs="?",
         default="all",
-        help="Command to run. Use collect for source collection, brief for report generation, all for both.",
+        help="Command to run. Use collect for source collection, brief for report generation, all for both, send-slack to post an existing Markdown report.",
     )
     parser.add_argument("--json-output", default="daily_brief.json", help="Path for machine-readable JSON report.")
     parser.add_argument("--markdown-output", default="daily_brief.md", help="Path for Slack-ready Markdown report.")
@@ -43,6 +43,23 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     settings = Settings.from_env()
+
+    if args.command == "send-slack":
+        markdown_path = Path(args.markdown_output)
+        if not markdown_path.exists():
+            print(f"Markdown report not found: {markdown_path}")
+            return 3
+        markdown = markdown_path.read_text(encoding="utf-8")
+        slack_result = send_slack_markdown_report(
+            markdown=markdown,
+            bot_token=settings.slack_bot_token,
+            channel=args.slack_channel or settings.slack_channel,
+            api_url=settings.slack_api_url,
+            timeout_seconds=settings.request_timeout_seconds,
+        )
+        print(slack_result.message)
+        return 0 if slack_result.sent or not slack_result.attempted else 4
+
     database = Database(settings.database_path)
 
     if args.command in {"collect", "all"}:

@@ -148,10 +148,22 @@ export SLACK_BOT_TOKEN=<your-slack-bot-token>
 export SLACK_CHANNEL=#industry-trends
 ```
 
-5. Run:
+5. Generate and send in one command:
 
 ```bash
 uv run python run.py brief --send-slack
+```
+
+To send an already-generated `daily_brief.md` without rerunning collection or LLM analysis, run:
+
+```bash
+uv run python run.py send-slack
+```
+
+You can choose a specific Markdown file or channel:
+
+```bash
+uv run python run.py send-slack --markdown-output daily_brief.md --slack-channel '#industry-trends'
 ```
 
 You can also enable delivery by default:
@@ -178,6 +190,7 @@ The current implementation supports:
 - `--force` regeneration for already-reported candidate events
 - JSON and Slack-ready Markdown report generation
 - Optional Slack `chat.postMessage` delivery via env vars / `--send-slack`
+- `send-slack` command for posting an existing `daily_brief.md` without rerunning the workflow
 - Basic collection pipeline orchestration
 
 The default local database path is:

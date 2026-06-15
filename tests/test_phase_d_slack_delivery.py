@@ -26,14 +26,14 @@ class FakeHTTPResponse:
 
 def test_settings_loads_optional_slack_delivery_config(monkeypatch):
     monkeypatch.setenv("SLACK_ENABLED", "true")
-    monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "test-token")
     monkeypatch.setenv("SLACK_CHANNEL", "#industry-trends")
     monkeypatch.setenv("SLACK_API_URL", "https://slack.example.test/chat.postMessage")
 
     settings = Settings.from_env(env_file=None)
 
     assert settings.slack_enabled is True
-    assert settings.slack_bot_token == "xoxb-test-token"
+    assert settings.slack_bot_token == "test-token"
     assert settings.slack_channel == "#industry-trends"
     assert settings.slack_api_url == "https://slack.example.test/chat.postMessage"
 
@@ -77,7 +77,7 @@ def test_slack_delivery_posts_markdown_without_exposing_token():
 
     result = send_slack_markdown_report(
         markdown="*Daily brief*\n- One important thing",
-        bot_token="xoxb-secret-token",
+        bot_token="test-token",
         channel="#industry-trends",
         api_url="https://slack.example.test/chat.postMessage",
         timeout_seconds=7,
@@ -88,10 +88,10 @@ def test_slack_delivery_posts_markdown_without_exposing_token():
     assert result.sent is True
     assert result.slack_ts == "123.456"
     assert result.channel == "#industry-trends"
-    assert "xoxb-secret-token" not in result.message
+    assert "test-token" not in result.message
     assert captured["url"] == "https://slack.example.test/chat.postMessage"
     assert captured["timeout"] == 7
-    assert captured["headers"]["Authorization"] == "Bearer xoxb-secret-token"
+    assert captured["headers"]["Authorization"] == "Bearer test-token"
     assert captured["headers"]["Content-type"] == "application/json"
     assert captured["payload"] == {
         "channel": "#industry-trends",
@@ -107,7 +107,7 @@ def test_slack_delivery_returns_clean_failure_for_slack_api_error():
 
     result = send_slack_markdown_report(
         markdown="brief",
-        bot_token="xoxb-secret-token",
+        bot_token="test-token",
         channel="#industry-trends",
         opener=fake_urlopen,
     )
@@ -115,7 +115,7 @@ def test_slack_delivery_returns_clean_failure_for_slack_api_error():
     assert result.attempted is True
     assert result.sent is False
     assert "channel_not_found" in result.message
-    assert "xoxb-secret-token" not in result.message
+    assert "test-token" not in result.message
 
 
 def test_slack_delivery_returns_clean_failure_for_network_error():
@@ -124,7 +124,7 @@ def test_slack_delivery_returns_clean_failure_for_network_error():
 
     result = send_slack_markdown_report(
         markdown="brief",
-        bot_token="xoxb-secret-token",
+        bot_token="test-token",
         channel="#industry-trends",
         opener=fake_urlopen,
     )
@@ -132,7 +132,7 @@ def test_slack_delivery_returns_clean_failure_for_network_error():
     assert result.attempted is True
     assert result.sent is False
     assert "temporary outage" in result.message
-    assert "xoxb-secret-token" not in result.message
+    assert "test-token" not in result.message
 
 
 def test_cli_exposes_slack_delivery_options():
@@ -143,8 +143,67 @@ def test_cli_exposes_slack_delivery_options():
         text=True,
     )
 
+    assert "send-slack" in result.stdout
     assert "--send-slack" in result.stdout
     assert "--slack-channel" in result.stdout
+
+
+def test_send_slack_command_sends_existing_markdown_without_regenerating(tmp_path):
+    markdown_path = tmp_path / "daily_brief.md"
+    markdown_path.write_text("# Existing brief\n\n- Already generated item", encoding="utf-8")
+    json_path = tmp_path / "should_not_be_created.json"
+    env = os.environ.copy()
+    env.update(
+        {
+            "DATABASE_PATH": str(tmp_path / "should_not_be_created.db"),
+            "AI_MODEL": "",
+            "AI_API_KEY": "",
+            "SLACK_BOT_TOKEN": "",
+            "SLACK_ENABLED": "false",
+        }
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "run.py",
+            "send-slack",
+            "--markdown-output",
+            str(markdown_path),
+            "--json-output",
+            str(json_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert "Slack delivery skipped: SLACK_BOT_TOKEN is not configured." in result.stdout
+    assert "Wrote" not in result.stdout
+    assert not json_path.exists()
+    assert not (tmp_path / "should_not_be_created.db").exists()
+
+
+def test_send_slack_command_fails_cleanly_when_markdown_missing(tmp_path):
+    env = os.environ.copy()
+    env.update({"SLACK_BOT_TOKEN": "", "SLACK_ENABLED": "false"})
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "run.py",
+            "send-slack",
+            "--markdown-output",
+            str(tmp_path / "missing.md"),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 3
+    assert "Markdown report not found" in result.stdout
 
 
 def test_cli_send_slack_without_token_does_not_crash(tmp_path):
