@@ -115,7 +115,7 @@ def generate_brief(
     llm_client: LLMClient | None = None,
     json_path: str | Path = "daily_brief.json",
     markdown_path: str | Path = "daily_brief.md",
-    max_items: int = 8,
+    max_items: int = 5,
     force: bool = False,
 ) -> BriefResult:
     settings = settings or Settings.from_env()

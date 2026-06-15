@@ -21,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json-output", default="daily_brief.json", help="Path for machine-readable JSON report.")
     parser.add_argument("--markdown-output", default="daily_brief.md", help="Path for Slack-ready Markdown report.")
-    parser.add_argument("--max-items", type=int, default=8, help="Maximum intelligence items in the report.")
+    parser.add_argument("--max-items", type=int, default=5, help="Maximum intelligence items in the report.")
     parser.add_argument(
         "--force",
         action="store_true",

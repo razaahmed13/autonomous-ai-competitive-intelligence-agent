@@ -419,7 +419,7 @@ Example:
 ```text
 Collected 42 raw items from 8 sources.
 Merged into 25 unique candidate events.
-Selected 8 intelligence items.
+Selected 5 intelligence items.
 Wrote daily_brief.json.
 Wrote daily_brief.md.
 Slack credentials not found; skipped delivery.

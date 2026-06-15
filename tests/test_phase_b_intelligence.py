@@ -249,6 +249,30 @@ def test_ranking_orders_by_importance_score_descending():
     assert ranked[1].title == "Minor AI conference update"
 
 
+def test_generate_brief_default_selects_top_five_items(tmp_path):
+    raw_items = [raw_item(f"AI development {index}", f"https://example.com/item-{index}") for index in range(6)]
+    llm_responses = []
+    for item in raw_items:
+        llm_responses.extend(
+            [
+                {"category": "Other", "confidence": 0.9, "reason": "Relevant AI development."},
+                analysis_response(item.title, "strong"),
+            ]
+        )
+
+    result = generate_brief(
+        raw_items=raw_items,
+        settings=Settings(database_path=tmp_path / "intelligence.db"),
+        llm_client=SequencedLLMClient(llm_responses),
+        json_path=tmp_path / "daily_brief.json",
+        markdown_path=tmp_path / "daily_brief.md",
+    )
+
+    assert result.selected_count == 5
+    assert json.loads(result.json_path.read_text())["selected_count"] == 5
+    assert "_5 high-signal developments selected from 6 candidates" in result.markdown_path.read_text()
+
+
 def test_report_writers_generate_json_and_slack_markdown(tmp_path):
     item = generate_intelligence_items(
         deduplicate_raw_items([raw_item("OpenAI releases major model", "https://openai.com/model", "OpenAI")]),

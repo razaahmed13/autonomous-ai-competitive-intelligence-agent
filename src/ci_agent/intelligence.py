@@ -39,7 +39,7 @@ def generate_intelligence_items(
     events: list[DedupedEvent],
     *,
     llm_client: LLMClient,
-    max_items: int = 8,
+    max_items: int = 5,
     neodym_profile: str | None = None,
 ) -> list[IntelligenceItem]:
     items: list[IntelligenceItem] = []
