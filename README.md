@@ -109,13 +109,36 @@ Collect raw source items into SQLite:
 uv run python run.py collect
 ```
 
-The current Phase A implementation supports:
+Generate intelligence reports with live LLM credentials:
+
+```bash
+AI_API_KEY=... AI_MODEL=... uv run python run.py brief
+```
+
+For local smoke testing without live LLM credentials, use the deterministic offline demo client:
+
+```bash
+AI_MODEL=offline-demo uv run python run.py brief --max-items 5
+```
+
+The Phase B pipeline writes:
+
+- `daily_brief.json`
+- `daily_brief.md`
+
+The current implementation supports:
 
 - Environment-driven config via `.env` / `.env.example`
 - Pydantic models for sources, raw items, deduplicated events, intelligence items, and daily briefs
 - SQLite tables for raw items, intelligence items, and source-item links
 - Default AI source definitions
 - RSS fetching and parsing
+- Deterministic deduplication
+- OpenAI-compatible LLM client and offline demo client
+- LLM-only categorization prompt
+- Source-grounded analysis prompt
+- Importance ranking
+- JSON and Slack-ready Markdown report generation
 - Basic collection pipeline orchestration
 
 The default local database path is:

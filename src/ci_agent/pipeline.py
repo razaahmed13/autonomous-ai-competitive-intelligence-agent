@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable
 
 from .config import Settings
 from .database import Database
+from .deduplication import deduplicate_raw_items
 from .fetchers.rss import fetch_rss_source
+from .intelligence import generate_intelligence_items
+from .llm.client import LLMClient, build_llm_client
 from .models import RawSourceItem, SourceConfig, SourceType
+from .report.json_report import write_json_report
+from .report.slack_markdown import write_slack_markdown
 from .sources import DEFAULT_SOURCES
 
 Fetcher = Callable[[SourceConfig, Settings], list[RawSourceItem]]
@@ -24,6 +30,16 @@ class CollectionResult:
     raw_item_count: int
     inserted_count: int
     failed_sources: list[SourceFailure] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class BriefResult:
+    source_count: int
+    raw_item_count: int
+    candidate_count: int
+    selected_count: int
+    json_path: Path
+    markdown_path: Path
 
 
 def default_fetcher(source: SourceConfig, settings: Settings) -> list[RawSourceItem]:
@@ -57,4 +73,40 @@ def collect_sources(
         raw_item_count=len(all_items),
         inserted_count=inserted,
         failed_sources=failures,
+    )
+
+
+def generate_brief(
+    *,
+    raw_items: list[RawSourceItem] | None = None,
+    settings: Settings | None = None,
+    database: Database | None = None,
+    llm_client: LLMClient | None = None,
+    json_path: str | Path = "daily_brief.json",
+    markdown_path: str | Path = "daily_brief.md",
+    max_items: int = 8,
+) -> BriefResult:
+    settings = settings or Settings.from_env()
+    database = database or Database(settings.database_path)
+    database.initialize()
+    raw_items = raw_items if raw_items is not None else database.list_raw_items(limit=200)
+    llm_client = llm_client or build_llm_client(settings)
+
+    events = deduplicate_raw_items(raw_items)
+    intelligence_items = generate_intelligence_items(events, llm_client=llm_client, max_items=max_items)
+    source_count = len({item.source_name for item in raw_items})
+    brief = write_json_report(
+        intelligence_items,
+        json_path,
+        source_count=source_count,
+        candidate_count=len(events),
+    )
+    write_slack_markdown(brief, markdown_path)
+    return BriefResult(
+        source_count=source_count,
+        raw_item_count=len(raw_items),
+        candidate_count=len(events),
+        selected_count=len(intelligence_items),
+        json_path=Path(json_path),
+        markdown_path=Path(markdown_path),
     )

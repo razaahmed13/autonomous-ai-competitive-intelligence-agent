@@ -1,0 +1,105 @@
+{
+  "date": "2026-06-15",
+  "generated_at": "2026-06-15T06:56:13.149612Z",
+  "methodology": "Items are ranked by LLM-assigned importance score using a rubric based on strategic relevance to Neodym, market impact, technical novelty, urgency, and source credibility. Ties are broken by source support.",
+  "items": [
+    {
+      "title": "When Sample Selection Bias Precipitates Model Collapse",
+      "category": "Research",
+      "importance_score": 8,
+      "score_reason": "Offline demo score based on source-grounded title/context; use AI_API_KEY for real LLM scoring.",
+      "summary": "When Sample Selection Bias Precipitates Model Collapse was identified from public AI sources.",
+      "why_it_matters": "This development may affect AI product expectations, technical direction, or market positioning.",
+      "why_it_matters_to_neodym": "Neodym should review whether this changes assumptions about agents, model capabilities, or AI infrastructure.",
+      "recommended_action": "Review the linked source and decide whether a product, research, or competitive follow-up is needed.",
+      "source_links": [
+        "https://arxiv.org/abs/2606.13732"
+      ],
+      "source_names": [
+        "arXiv cs.AI"
+      ],
+      "deduped_from_ids": [
+        "b2856376296d30b9b178a3fe"
+      ]
+    },
+    {
+      "title": "We’re launching the Google DeepMind Accelerator program in Asia Pacific to tackle environmental risks",
+      "category": "Competitor Update",
+      "importance_score": 8,
+      "score_reason": "Offline demo score based on source-grounded title/context; use AI_API_KEY for real LLM scoring.",
+      "summary": "We’re launching the Google DeepMind Accelerator program in Asia Pacific to tackle environmental risks was identified from public AI sources.",
+      "why_it_matters": "This development may affect AI product expectations, technical direction, or market positioning.",
+      "why_it_matters_to_neodym": "Neodym should review whether this changes assumptions about agents, model capabilities, or AI infrastructure.",
+      "recommended_action": "Review the linked source and decide whether a product, research, or competitive follow-up is needed.",
+      "source_links": [
+        "https://deepmind.google/blog/were-launching-the-google-deepmind-accelerator-program-in-asia-pacific-to-tackle-environmental-risks/"
+      ],
+      "source_names": [
+        "Google DeepMind Blog"
+      ],
+      "deduped_from_ids": [
+        "1680e6136844ee93519ed0c6"
+      ]
+    },
+    {
+      "title": "UP-NRPA: User Portrait based Nested Rollout Policy Adaptation for Planning with Large Language Models in Goal-oriented Dialogue Systems",
+      "category": "Research",
+      "importance_score": 8,
+      "score_reason": "Offline demo score based on source-grounded title/context; use AI_API_KEY for real LLM scoring.",
+      "summary": "UP-NRPA: User Portrait based Nested Rollout Policy Adaptation for Planning with Large Language Models in Goal-oriented Dialogue Systems was identified from public AI sources.",
+      "why_it_matters": "This development may affect AI product expectations, technical direction, or market positioning.",
+      "why_it_matters_to_neodym": "Neodym should review whether this changes assumptions about agents, model capabilities, or AI infrastructure.",
+      "recommended_action": "Review the linked source and decide whether a product, research, or competitive follow-up is needed.",
+      "source_links": [
+        "https://arxiv.org/abs/2606.13683"
+      ],
+      "source_names": [
+        "arXiv cs.AI"
+      ],
+      "deduped_from_ids": [
+        "78fc9af23f4b06df5ac1d682"
+      ]
+    },
+    {
+      "title": "OpenAI to acquire Ona",
+      "category": "Startup Activity",
+      "importance_score": 8,
+      "score_reason": "Offline demo score based on source-grounded title/context; use AI_API_KEY for real LLM scoring.",
+      "summary": "OpenAI to acquire Ona was identified from public AI sources.",
+      "why_it_matters": "This development may affect AI product expectations, technical direction, or market positioning.",
+      "why_it_matters_to_neodym": "Neodym should review whether this changes assumptions about agents, model capabilities, or AI infrastructure.",
+      "recommended_action": "Review the linked source and decide whether a product, research, or competitive follow-up is needed.",
+      "source_links": [
+        "https://openai.com/index/openai-to-acquire-ona"
+      ],
+      "source_names": [
+        "OpenAI News"
+      ],
+      "deduped_from_ids": [
+        "738946354c8c7cf24309fbb6"
+      ]
+    },
+    {
+      "title": "olmo-eval: An evaluation workbench for the model development loop",
+      "category": "Model Release",
+      "importance_score": 8,
+      "score_reason": "Offline demo score based on source-grounded title/context; use AI_API_KEY for real LLM scoring.",
+      "summary": "olmo-eval: An evaluation workbench for the model development loop was identified from public AI sources.",
+      "why_it_matters": "This development may affect AI product expectations, technical direction, or market positioning.",
+      "why_it_matters_to_neodym": "Neodym should review whether this changes assumptions about agents, model capabilities, or AI infrastructure.",
+      "recommended_action": "Review the linked source and decide whether a product, research, or competitive follow-up is needed.",
+      "source_links": [
+        "https://huggingface.co/blog/allenai/olmo-eval"
+      ],
+      "source_names": [
+        "Hugging Face Blog"
+      ],
+      "deduped_from_ids": [
+        "75c6c65d0d25041bf938324c"
+      ]
+    }
+  ],
+  "source_count": 5,
+  "candidate_count": 50,
+  "selected_count": 5
+}
