@@ -127,10 +127,40 @@ By default, the brief command stores reported intelligence fingerprints in SQLit
 AI_MODEL=offline-demo uv run python run.py brief --max-items 5 --force
 ```
 
-The Phase C pipeline writes:
+The Phase D pipeline writes:
 
 - `daily_brief.json`
 - `daily_brief.md`
+
+## Slack Delivery
+
+The system always generates `daily_brief.md`, which is ready to paste into Slack. Automatic Slack delivery is optional and controlled by environment variables so credentials are never hardcoded.
+
+To send the generated report to Slack:
+
+1. Create or use a Slack app with a bot token.
+2. Grant the bot the `chat:write` scope.
+3. Invite the bot to the target channel, preferably `#industry-trends`.
+4. Configure environment variables:
+
+```bash
+export SLACK_BOT_TOKEN=<your-slack-bot-token>
+export SLACK_CHANNEL=#industry-trends
+```
+
+5. Run:
+
+```bash
+uv run python run.py brief --send-slack
+```
+
+You can also enable delivery by default:
+
+```bash
+SLACK_ENABLED=true uv run python run.py brief
+```
+
+If Slack credentials are missing, report generation still succeeds and the CLI prints a clear skip message. If Slack returns `channel_not_found`, invite the bot to the channel or use the Slack channel ID instead of the channel name.
 
 The current implementation supports:
 
@@ -147,6 +177,7 @@ The current implementation supports:
 - Historical tracking for reported intelligence fingerprints
 - `--force` regeneration for already-reported candidate events
 - JSON and Slack-ready Markdown report generation
+- Optional Slack `chat.postMessage` delivery via env vars / `--send-slack`
 - Basic collection pipeline orchestration
 
 The default local database path is:

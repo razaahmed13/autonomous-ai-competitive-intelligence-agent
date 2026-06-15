@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from .config import Settings
 from .database import Database
 from .pipeline import collect_sources, generate_brief
+from .slack import send_slack_markdown_report
 from .sources import DEFAULT_SOURCES
 
 
@@ -24,6 +26,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help="Regenerate brief even for already-reported intelligence fingerprints.",
+    )
+    parser.add_argument(
+        "--send-slack",
+        action="store_true",
+        help="Send the generated Markdown report to Slack after brief generation.",
+    )
+    parser.add_argument(
+        "--slack-channel",
+        default=None,
+        help="Slack channel name or ID for delivery. Defaults to SLACK_CHANNEL or #industry-trends.",
     )
     return parser
 
@@ -64,4 +76,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Stored {result.reported_count} newly reported intelligence items.")
         print(f"Wrote {result.json_path}.")
         print(f"Wrote {result.markdown_path}.")
+        if args.send_slack or settings.slack_enabled:
+            markdown = Path(result.markdown_path).read_text(encoding="utf-8")
+            slack_result = send_slack_markdown_report(
+                markdown=markdown,
+                bot_token=settings.slack_bot_token,
+                channel=args.slack_channel or settings.slack_channel,
+                api_url=settings.slack_api_url,
+                timeout_seconds=settings.request_timeout_seconds,
+            )
+            print(slack_result.message)
     return 0
