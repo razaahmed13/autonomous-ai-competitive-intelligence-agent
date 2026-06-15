@@ -94,15 +94,6 @@ Expected command: `python run_evals.py` or a clearly documented equivalent.
 - [ ] Agent usage log covering AI tools used, verification, problems, and lessons learned
 - [ ] 5-10 minute demo material covering architecture, features, AI workflow, generated report, Slack output, eval results, and future improvements
 
-## Evaluation Criteria
-
-- Engineering Execution — 25%
-- Product Thinking — 20%
-- AI Integration — 20%
-- Evaluation & Testing — 15%
-- Documentation & Communication — 10%
-- Deployment & Usability — 10%
-
 ## Project Statement
 
 The original attached project statement is preserved at:
