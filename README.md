@@ -121,7 +121,13 @@ For local smoke testing without live LLM credentials, use the deterministic offl
 AI_MODEL=offline-demo uv run python run.py brief --max-items 5
 ```
 
-The Phase B pipeline writes:
+By default, the brief command stores reported intelligence fingerprints in SQLite and skips them on later runs. To intentionally regenerate a brief from already-reported candidate events, use:
+
+```bash
+AI_MODEL=offline-demo uv run python run.py brief --max-items 5 --force
+```
+
+The Phase C pipeline writes:
 
 - `daily_brief.json`
 - `daily_brief.md`
@@ -138,6 +144,8 @@ The current implementation supports:
 - LLM-only categorization prompt
 - Source-grounded analysis prompt
 - Importance ranking
+- Historical tracking for reported intelligence fingerprints
+- `--force` regeneration for already-reported candidate events
 - JSON and Slack-ready Markdown report generation
 - Basic collection pipeline orchestration
 

@@ -10,7 +10,7 @@ from .deduplication import deduplicate_raw_items
 from .fetchers.rss import fetch_rss_source
 from .intelligence import generate_intelligence_items
 from .llm.client import LLMClient, build_llm_client
-from .models import RawSourceItem, SourceConfig, SourceType
+from .models import IntelligenceItem, RawSourceItem, SourceConfig, SourceType
 from .report.json_report import write_json_report
 from .report.slack_markdown import write_slack_markdown
 from .sources import DEFAULT_SOURCES
@@ -38,6 +38,8 @@ class BriefResult:
     raw_item_count: int
     candidate_count: int
     selected_count: int
+    skipped_reported_count: int
+    reported_count: int
     json_path: Path
     markdown_path: Path
 
@@ -85,6 +87,7 @@ def generate_brief(
     json_path: str | Path = "daily_brief.json",
     markdown_path: str | Path = "daily_brief.md",
     max_items: int = 8,
+    force: bool = False,
 ) -> BriefResult:
     settings = settings or Settings.from_env()
     database = database or Database(settings.database_path)
@@ -97,11 +100,20 @@ def generate_brief(
     neodym_profile = load_neodym_profile(settings.neodym_profile_path)
 
     events = deduplicate_raw_items(raw_items)
+    reported_fingerprints = set() if force else database.reported_fingerprints(
+        event.content_fingerprint for event in events
+    )
+    eligible_events = [
+        event for event in events if force or event.content_fingerprint not in reported_fingerprints
+    ]
     intelligence_items = generate_intelligence_items(
-        events,
+        eligible_events,
         llm_client=llm_client,
         max_items=max_items,
         neodym_profile=neodym_profile,
+    )
+    reported_count = 0 if force else database.store_reported_intelligence_items(
+        _reported_item_records(intelligence_items)
     )
     source_count = len({item.source_name for item in raw_items})
     brief = write_json_report(
@@ -116,6 +128,25 @@ def generate_brief(
         raw_item_count=len(raw_items),
         candidate_count=len(events),
         selected_count=len(intelligence_items),
+        skipped_reported_count=len(reported_fingerprints),
+        reported_count=reported_count,
         json_path=Path(json_path),
         markdown_path=Path(markdown_path),
     )
+
+
+def _reported_item_records(items: list[IntelligenceItem]) -> list[dict]:
+    return [
+        {
+            "id": f"report:{item.content_fingerprint}",
+            "canonical_title": item.title,
+            "category": item.category.value,
+            "importance_score": item.importance_score,
+            "raw_score": item.raw_score,
+            "summary": item.summary,
+            "source_links": item.source_links,
+            "content_fingerprint": item.content_fingerprint,
+            "raw_item_ids": item.deduped_from_ids,
+        }
+        for item in items
+    ]

@@ -65,6 +65,7 @@ def generate_intelligence_items(
             source_links=event.source_links,
             source_names=list(dict.fromkeys(source_item.source_name for source_item in event.source_items)),
             deduped_from_ids=[source_item.id or "" for source_item in event.source_items],
+            content_fingerprint=event.content_fingerprint,
         )
         items.append(item)
     return rank_intelligence_items(items)[:max_items]

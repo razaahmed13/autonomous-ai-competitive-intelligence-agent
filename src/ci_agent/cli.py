@@ -20,6 +20,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json-output", default="daily_brief.json", help="Path for machine-readable JSON report.")
     parser.add_argument("--markdown-output", default="daily_brief.md", help="Path for Slack-ready Markdown report.")
     parser.add_argument("--max-items", type=int, default=8, help="Maximum intelligence items in the report.")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate brief even for already-reported intelligence fingerprints.",
+    )
     return parser
 
 
@@ -45,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
                 json_path=args.json_output,
                 markdown_path=args.markdown_output,
                 max_items=args.max_items,
+                force=args.force,
             )
         except ValueError as exc:
             print(f"Could not generate brief: {exc}")
@@ -52,7 +58,10 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(f"Loaded {result.raw_item_count} raw items fetched in the last {settings.brief_lookback_hours} hours.")
         print(f"Merged into {result.candidate_count} unique candidate events.")
+        if result.skipped_reported_count:
+            print(f"Skipped {result.skipped_reported_count} already-reported candidate events.")
         print(f"Selected {result.selected_count} intelligence items.")
+        print(f"Stored {result.reported_count} newly reported intelligence items.")
         print(f"Wrote {result.json_path}.")
         print(f"Wrote {result.markdown_path}.")
     return 0
