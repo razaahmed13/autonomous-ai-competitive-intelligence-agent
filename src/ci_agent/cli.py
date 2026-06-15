@@ -65,6 +65,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in {"collect", "all"}:
         result = collect_sources(DEFAULT_SOURCES, settings, database)
         print(f"Collected {result.raw_item_count} raw items from {result.source_count} sources.")
+        if result.skipped_stale_count:
+            print(f"Skipped {result.skipped_stale_count} items older than 24 hours based on published_at.")
         print(f"Inserted {result.inserted_count} new raw items into {settings.database_path}.")
         if result.failed_sources:
             print(f"{len(result.failed_sources)} sources failed:")

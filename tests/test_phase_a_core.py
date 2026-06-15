@@ -6,7 +6,7 @@ import pytest
 
 from ci_agent.config import Settings, load_neodym_profile
 from ci_agent.database import Database
-from ci_agent.fetchers.rss import parse_rss_feed
+from ci_agent.fetchers.rss import fetch_rss_source, parse_rss_feed
 from ci_agent.models import RawSourceItem, SourceConfig, SourceType
 from ci_agent.pipeline import CollectionResult, collect_sources
 from ci_agent.sources import DEFAULT_SOURCES
@@ -152,6 +152,36 @@ def test_rss_parser_normalizes_feed_entries():
     assert items[0].url == "https://example.com/first"
     assert items[0].raw_summary == "Short summary"
     assert items[0].published_at is not None
+
+
+def test_rss_fetcher_requests_identity_encoding_to_avoid_brotli_decode_errors(monkeypatch):
+    captured = {}
+    xml = """<?xml version="1.0" encoding="UTF-8" ?>
+    <rss version="2.0"><channel><title>Example</title></channel></rss>
+    """
+
+    class FakeResponse:
+        text = xml
+
+        def raise_for_status(self):
+            return None
+
+    def fake_get(url, *, headers, timeout, follow_redirects):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        captured["follow_redirects"] = follow_redirects
+        return FakeResponse()
+
+    monkeypatch.setattr("ci_agent.fetchers.rss.httpx.get", fake_get)
+    source = SourceConfig(name="Example Feed", type=SourceType.RSS, url="https://example.com/rss.xml")
+
+    fetch_rss_source(source, Settings(user_agent="test-agent", request_timeout_seconds=9))
+
+    assert captured["url"] == "https://example.com/rss.xml"
+    assert captured["headers"] == {"User-Agent": "test-agent", "Accept-Encoding": "identity"}
+    assert captured["timeout"] == 9
+    assert captured["follow_redirects"] is True
 
 
 def test_default_sources_include_multiple_independent_rss_sources():

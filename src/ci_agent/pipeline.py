@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
@@ -29,6 +30,7 @@ class CollectionResult:
     source_count: int
     raw_item_count: int
     inserted_count: int
+    skipped_stale_count: int = 0
     failed_sources: list[SourceFailure] = field(default_factory=list)
 
 
@@ -50,6 +52,31 @@ def default_fetcher(source: SourceConfig, settings: Settings) -> list[RawSourceI
     raise ValueError(f"Unsupported source type: {source.type}")
 
 
+def filter_collectable_items_by_published_at(
+    items: list[RawSourceItem],
+    *,
+    now: datetime | None = None,
+    max_age_hours: int = 24,
+) -> list[RawSourceItem]:
+    """Keep only fresh published items while preserving missing-date items."""
+    now = now or datetime.now(UTC)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=UTC)
+    cutoff = now.astimezone(UTC) - timedelta(hours=max_age_hours)
+
+    collectable: list[RawSourceItem] = []
+    for item in items:
+        if item.published_at is None:
+            collectable.append(item)
+            continue
+        published_at = item.published_at
+        if published_at.tzinfo is None:
+            published_at = published_at.replace(tzinfo=UTC)
+        if published_at.astimezone(UTC) >= cutoff:
+            collectable.append(item)
+    return collectable
+
+
 def collect_sources(
     sources: list[SourceConfig] | None = None,
     settings: Settings | None = None,
@@ -61,19 +88,21 @@ def collect_sources(
     database = database or Database(settings.database_path)
     database.initialize()
 
-    all_items: list[RawSourceItem] = []
+    fetched_items: list[RawSourceItem] = []
     failures: list[SourceFailure] = []
     for source in sources:
         try:
-            all_items.extend(fetcher(source, settings))
+            fetched_items.extend(fetcher(source, settings))
         except Exception as exc:
             failures.append(SourceFailure(source_name=source.name, error=str(exc)))
 
-    inserted = database.upsert_raw_items(all_items)
+    collectable_items = filter_collectable_items_by_published_at(fetched_items)
+    inserted = database.upsert_raw_items(collectable_items)
     return CollectionResult(
         source_count=len(sources),
-        raw_item_count=len(all_items),
+        raw_item_count=len(collectable_items),
         inserted_count=inserted,
+        skipped_stale_count=len(fetched_items) - len(collectable_items),
         failed_sources=failures,
     )
 

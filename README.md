@@ -127,10 +127,22 @@ By default, the brief command stores reported intelligence fingerprints in SQLit
 AI_MODEL=offline-demo uv run python run.py brief --max-items 5 --force
 ```
 
-The Phase D pipeline writes:
+The Phase E pipeline writes:
 
 - `daily_brief.json`
 - `daily_brief.md`
+
+## Source Expansion and Freshness Policy
+
+The default source registry contains 25 AI/ML sources across model labs, agent tooling, research, and market intelligence.
+
+During collection, the agent applies this freshness policy before inserting raw items into SQLite:
+
+- If `published_at` exists, items older than 24 hours are skipped.
+- If `published_at` is missing, items are kept.
+- Daily brief generation still uses `fetched_at` from the last 24 hours.
+
+This keeps expanded collection from backfilling old articles while preserving sources that do not expose reliable publish dates.
 
 ## Slack Delivery
 
@@ -179,8 +191,9 @@ The current implementation supports:
 - Environment-driven config via `.env` / `.env.example`
 - Pydantic models for sources, raw items, deduplicated events, intelligence items, and daily briefs
 - SQLite tables for raw items, intelligence items, and source-item links
-- Default AI source definitions
+- Default AI source definitions with 25 sources
 - RSS fetching and parsing
+- Collection freshness filtering using `published_at` when available
 - Deterministic deduplication
 - OpenAI-compatible LLM client and offline demo client
 - LLM-only categorization prompt

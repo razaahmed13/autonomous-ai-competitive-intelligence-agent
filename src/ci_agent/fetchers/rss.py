@@ -15,7 +15,7 @@ from ..models import RawSourceItem, SourceConfig, SourceType
 def fetch_rss_source(source: SourceConfig, settings: Settings) -> list[RawSourceItem]:
     response = httpx.get(
         source.url,
-        headers={"User-Agent": settings.user_agent},
+        headers={"User-Agent": settings.user_agent, "Accept-Encoding": "identity"},
         timeout=settings.request_timeout_seconds,
         follow_redirects=True,
     )
