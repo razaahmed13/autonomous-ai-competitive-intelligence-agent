@@ -3,11 +3,17 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+import sqlite3
 
 from ci_agent.config import Settings
 from ci_agent.database import Database
 from ci_agent.deduplication import deduplicate_raw_items, normalize_fingerprint
-from ci_agent.intelligence import analyze_event, classify_event, generate_intelligence_items
+from ci_agent.intelligence import (
+    analyze_event,
+    classify_event,
+    deduplicate_brief_items_with_llm,
+    generate_intelligence_items,
+)
 from ci_agent.llm.client import LLMClient
 from ci_agent.llm.prompts import build_analysis_prompt, build_categorization_prompt
 from ci_agent.models import IntelligenceCategory, RawSourceItem, SourceType
@@ -243,14 +249,91 @@ def test_ranking_orders_by_importance_score_descending():
     assert ranked[1].title == "Minor AI conference update"
 
 
-def test_generate_brief_default_selects_top_five_items(tmp_path):
+def test_llm_brief_dedupe_merges_duplicates_but_keeps_unrelated_item_exactly_unchanged():
+    raw_items = [
+        raw_item("OpenAI launches GPT-5", "https://openai.com/gpt-5", "OpenAI"),
+        raw_item("Microsoft details GPT-5 availability", "https://microsoft.com/gpt-5", "Microsoft"),
+        raw_item("Anthropic updates Claude Code", "https://anthropic.com/claude-code", "Anthropic"),
+    ]
+    items = generate_intelligence_items(
+        deduplicate_raw_items(raw_items),
+        llm_client=SequencedLLMClient(
+            [
+                {"category": "Model Release", "confidence": 0.95, "reason": "Major model release."},
+                analysis_response("OpenAI launches GPT-5", "excellent"),
+                {"category": "Model Release", "confidence": 0.92, "reason": "Same model availability news."},
+                analysis_response("Microsoft details GPT-5 availability", "strong"),
+                {"category": "Infrastructure", "confidence": 0.9, "reason": "Developer tooling update."},
+                analysis_response("Anthropic updates Claude Code", "strong"),
+            ]
+        ),
+        max_items=None,
+    )
+    unchanged = next(item for item in items if item.title == "Anthropic updates Claude Code")
+    llm = SequencedLLMClient(
+        [
+            {
+                "groups": [
+                    {
+                        "item_ids": [
+                            next(item.content_fingerprint for item in items if item.title == "OpenAI launches GPT-5"),
+                            next(item.content_fingerprint for item in items if item.title == "Microsoft details GPT-5 availability"),
+                        ],
+                        "title": "OpenAI and Microsoft detail GPT-5 availability",
+                        "summary": "OpenAI launched GPT-5 and Microsoft detailed availability.",
+                        "reason": "Same GPT-5 launch/update.",
+                    },
+                    {
+                        "item_ids": [unchanged.content_fingerprint],
+                        "title": "LLM should not rewrite this unrelated title",
+                        "summary": "LLM should not rewrite this unrelated summary.",
+                        "reason": "Distinct item.",
+                    },
+                ]
+            }
+        ]
+    )
+
+    deduped = deduplicate_brief_items_with_llm(items, llm)
+
+    assert len(deduped) == 2
+    merged = deduped[0]
+    assert merged.title == "OpenAI and Microsoft detail GPT-5 availability"
+    assert merged.importance_score == 10.0
+    assert merged.source_links == ["https://openai.com/gpt-5", "https://microsoft.com/gpt-5"]
+    assert set(merged.deduped_from_ids) >= {
+        next(item.id for item in raw_items if item.title == "OpenAI launches GPT-5"),
+        next(item.id for item in raw_items if item.title == "Microsoft details GPT-5 availability"),
+    }
+    assert deduped[1] == unchanged
+    assert "If an item does not resemble any other selected item, keep it exactly as-is" in llm.calls[0][1]
+
+
+def test_llm_brief_dedupe_invalid_response_falls_back_to_original_items():
+    items = generate_intelligence_items(
+        deduplicate_raw_items([raw_item("OpenAI releases model", "https://openai.com/model")]),
+        llm_client=SequencedLLMClient(
+            [
+                {"category": "Model Release", "confidence": 0.95, "reason": "Major model release."},
+                analysis_response("OpenAI releases model", "excellent"),
+            ]
+        ),
+    )
+
+    deduped = deduplicate_brief_items_with_llm(items, SequencedLLMClient([{"groups": []}]))
+
+    assert deduped == items
+
+
+def test_generate_brief_selects_all_items_with_importance_score_at_least_seven(tmp_path):
     raw_items = [raw_item(f"AI development {index}", f"https://example.com/item-{index}") for index in range(6)]
+    statuses = ["excellent", "strong", "good", "partial", "weak", "missing"]
     llm_responses = []
-    for item in raw_items:
+    for item, status in zip(raw_items, statuses, strict=True):
         llm_responses.extend(
             [
                 {"category": "Other", "confidence": 0.9, "reason": "Relevant AI development."},
-                analysis_response(item.title, "strong"),
+                analysis_response(item.title, status),
             ]
         )
 
@@ -262,9 +345,129 @@ def test_generate_brief_default_selects_top_five_items(tmp_path):
         markdown_path=tmp_path / "daily_brief.md",
     )
 
-    assert result.selected_count == 5
-    assert json.loads(result.json_path.read_text())["selected_count"] == 5
-    assert "_5 high-signal developments selected from 6 candidates" in result.markdown_path.read_text()
+    data = json.loads(result.json_path.read_text())
+    assert result.selected_count == 3
+    assert result.reported_count == 6
+    with sqlite3.connect(tmp_path / "intelligence.db") as conn:
+        stored_scores = [
+            row[0]
+            for row in conn.execute(
+                "SELECT importance_score FROM intelligence_items ORDER BY importance_score DESC"
+            ).fetchall()
+        ]
+    assert stored_scores == [10.0, 8.5, 7.0, 5.0, 3.0, 1.0]
+    assert data["selected_count"] == 3
+    assert [item["importance_score"] for item in data["items"]] == [10.0, 8.5, 7.0]
+    markdown = result.markdown_path.read_text()
+    assert "AI development 0" in markdown
+    assert "AI development 1" in markdown
+    assert "AI development 2" in markdown
+    assert "AI development 3" not in markdown
+    assert "high-signal developments selected" not in markdown
+    assert "candidates across" not in markdown
+
+
+def test_generate_brief_runs_llm_dedupe_only_for_json_markdown_not_database(tmp_path):
+    raw_items = [
+        raw_item("OpenAI announces enterprise agent platform", "https://openai.com/agents", "OpenAI"),
+        raw_item("Azure introduces autonomous workflow suite", "https://microsoft.com/agents", "Microsoft"),
+        raw_item("Anthropic updates Claude Code", "https://anthropic.com/claude-code", "Anthropic"),
+    ]
+    events = deduplicate_raw_items(raw_items)
+    fingerprints_by_title = {event.canonical_title: event.content_fingerprint for event in events}
+    llm_responses = []
+    for item in raw_items:
+        llm_responses.extend(
+            [
+                {"category": "Other", "confidence": 0.9, "reason": "Relevant AI development."},
+                analysis_response(item.title, "strong"),
+            ]
+        )
+    llm_responses.append(
+        {
+            "groups": [
+                {
+                    "item_ids": [
+                        fingerprints_by_title["OpenAI announces enterprise agent platform"],
+                        fingerprints_by_title["Azure introduces autonomous workflow suite"],
+                    ],
+                    "title": "OpenAI and Microsoft advance enterprise agent platforms",
+                    "summary": "OpenAI and Microsoft both advanced enterprise agent/workflow platforms.",
+                    "reason": "Both describe the same enterprise agent platform trend.",
+                },
+                {
+                    "item_ids": [fingerprints_by_title["Anthropic updates Claude Code"]],
+                    "title": "Do not rewrite unrelated singleton",
+                    "summary": "Do not rewrite unrelated singleton.",
+                    "reason": "Distinct item.",
+                },
+            ]
+        }
+    )
+
+    result = generate_brief(
+        raw_items=raw_items,
+        settings=Settings(database_path=tmp_path / "intelligence.db"),
+        llm_client=SequencedLLMClient(llm_responses),
+        json_path=tmp_path / "daily_brief.json",
+        markdown_path=tmp_path / "daily_brief.md",
+    )
+
+    data = json.loads(result.json_path.read_text())
+    assert result.reported_count == 3
+    assert result.selected_count == 2
+    assert data["selected_count"] == 2
+    assert [item["title"] for item in data["items"]] == [
+        "OpenAI and Microsoft advance enterprise agent platforms",
+        "Anthropic updates Claude Code",
+    ]
+    markdown = result.markdown_path.read_text()
+    assert "OpenAI and Microsoft advance enterprise agent platforms" in markdown
+    assert "Do not rewrite unrelated singleton" not in markdown
+    with sqlite3.connect(tmp_path / "intelligence.db") as conn:
+        stored_titles = [
+            row[0]
+            for row in conn.execute("SELECT canonical_title FROM intelligence_items ORDER BY canonical_title").fetchall()
+        ]
+        stored_links = [
+            json.loads(row[0])
+            for row in conn.execute("SELECT source_links_json FROM intelligence_items ORDER BY canonical_title").fetchall()
+        ]
+        source_link_rows = conn.execute("SELECT COUNT(*) FROM source_item_links").fetchone()[0]
+    assert stored_titles == sorted(item.title for item in raw_items)
+    assert stored_links == [[item.url] for item in sorted(raw_items, key=lambda item: item.title)]
+    assert source_link_rows == 3
+
+
+def test_generate_brief_falls_back_to_highest_scored_item_when_none_reach_threshold(tmp_path):
+    raw_items = [
+        raw_item("Minor integration update", "https://example.com/low-0"),
+        raw_item("Small model benchmark note", "https://example.com/low-1"),
+        raw_item("Routine AI newsletter recap", "https://example.com/low-2"),
+    ]
+    statuses = ["weak", "partial", "missing"]
+    llm_responses = []
+    for item, status in zip(raw_items, statuses, strict=True):
+        llm_responses.extend(
+            [
+                {"category": "Other", "confidence": 0.9, "reason": "Lower-signal AI update."},
+                analysis_response(item.title, status),
+            ]
+        )
+
+    result = generate_brief(
+        raw_items=raw_items,
+        settings=Settings(database_path=tmp_path / "intelligence.db"),
+        llm_client=SequencedLLMClient(llm_responses),
+        json_path=tmp_path / "daily_brief.json",
+        markdown_path=tmp_path / "daily_brief.md",
+    )
+
+    data = json.loads(result.json_path.read_text())
+    assert result.selected_count == 1
+    assert data["selected_count"] == 1
+    assert data["items"][0]["title"] == "Small model benchmark note"
+    assert data["items"][0]["importance_score"] == 5.0
 
 
 def test_report_writers_generate_json_and_slack_markdown(tmp_path):
@@ -291,7 +494,10 @@ def test_report_writers_generate_json_and_slack_markdown(tmp_path):
     assert "why_it_matters_to_neodym" not in data["items"][0]
     assert "recommended_action" not in data["items"][0]
     assert "*Daily AI Competitive Intelligence Brief*" in markdown
-    assert "*1. [10.0/10] OpenAI releases major model*" in markdown
+    assert "*1. OpenAI releases major model [<https://openai.com/model|OpenAI>]*" in markdown
+    assert "[10.0/10]" not in markdown
+    assert "• *Category:*" not in markdown
+    assert "• *Sources:*" not in markdown
     assert "Why it matters to Neodym" not in md_path.read_text()
     assert "Recommended action" not in md_path.read_text()
 
@@ -314,7 +520,10 @@ def test_slack_markdown_is_presentable_message_without_internal_methodology_or_d
     assert brief.methodology not in markdown
     assert "\n---\n" not in markdown
     assert "━━━━━━━━" in markdown
-    assert "• *Category:* Model Release" in markdown
+    assert "*1. OpenAI releases major model [<https://openai.com/model|OpenAI>]*" in markdown
+    assert "• *Category:*" not in markdown
+    assert "• *Sources:*" not in markdown
+    assert "[10.0/10]" not in markdown
     assert "• *Recommended action:*" not in markdown
     assert "• *Why it matters to Neodym:*" not in markdown
 

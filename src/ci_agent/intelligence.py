@@ -6,6 +6,8 @@ from .llm.client import LLMClient
 from .llm.prompts import (
     build_analysis_prompt,
     build_analysis_system_prompt,
+    build_brief_deduplication_prompt,
+    build_brief_deduplication_system_prompt,
     build_categorization_prompt,
     build_categorization_system_prompt,
 )
@@ -33,11 +35,22 @@ class AnalysisResponse(BaseModel):
     scoring_assessments: list[CriterionAssessment]
 
 
+class BriefDedupeGroup(BaseModel):
+    item_ids: list[str] = Field(min_length=1)
+    title: str | None = None
+    summary: str | None = None
+    reason: str | None = None
+
+
+class BriefDedupeResponse(BaseModel):
+    groups: list[BriefDedupeGroup] = Field(min_length=1)
+
+
 def generate_intelligence_items(
     events: list[DedupedEvent],
     *,
     llm_client: LLMClient,
-    max_items: int = 5,
+    max_items: int | None = 5,
     neodym_profile: str | None = None,
 ) -> list[IntelligenceItem]:
     items: list[IntelligenceItem] = []
@@ -64,7 +77,80 @@ def generate_intelligence_items(
             content_fingerprint=event.content_fingerprint,
         )
         items.append(item)
-    return rank_intelligence_items(items)[:max_items]
+    ranked_items = rank_intelligence_items(items)
+    if max_items is None:
+        return ranked_items
+    return ranked_items[:max_items]
+
+
+def deduplicate_brief_items_with_llm(
+    items: list[IntelligenceItem],
+    llm_client: LLMClient,
+) -> list[IntelligenceItem]:
+    """Presentation-only LLM dedupe for selected daily brief items.
+
+    The returned list is intended only for JSON/Markdown/Slack rendering. Callers should
+    persist/report the original analyzed items before using this presentation transform.
+    """
+    if len(items) <= 1:
+        return items
+
+    try:
+        data = llm_client.complete_json(
+            system_prompt=build_brief_deduplication_system_prompt(),
+            user_prompt=build_brief_deduplication_prompt(items),
+        )
+        response = BriefDedupeResponse.model_validate(data)
+        return _apply_brief_dedupe_groups(items, response.groups)
+    except Exception:
+        return items
+
+
+def _apply_brief_dedupe_groups(
+    items: list[IntelligenceItem],
+    groups: list[BriefDedupeGroup],
+) -> list[IntelligenceItem]:
+    by_id = {item.content_fingerprint: item for item in items}
+    seen: set[str] = set()
+    deduped: list[IntelligenceItem] = []
+
+    for group in groups:
+        group_ids = group.item_ids
+        if any(item_id not in by_id or item_id in seen for item_id in group_ids):
+            raise ValueError("brief dedupe groups must reference each input id exactly once")
+        seen.update(group_ids)
+        group_items = [by_id[item_id] for item_id in group_ids]
+        if len(group_items) == 1:
+            # Explicitly preserve unrelated/singleton items exactly as analyzed, even if
+            # the LLM supplied rewritten title/summary fields.
+            deduped.append(group_items[0])
+            continue
+        deduped.append(_merge_brief_items(group_items, title=group.title, summary=group.summary))
+
+    if seen != set(by_id):
+        raise ValueError("brief dedupe response omitted one or more input ids")
+    return deduped
+
+
+def _merge_brief_items(
+    items: list[IntelligenceItem],
+    *,
+    title: str | None,
+    summary: str | None,
+) -> IntelligenceItem:
+    strongest = max(items, key=lambda item: (item.importance_score, item.raw_score))
+    source_links = list(dict.fromkeys(link for item in items for link in item.source_links))
+    source_names = list(dict.fromkeys(name for item in items for name in item.source_names))
+    deduped_from_ids = list(dict.fromkeys(raw_id for item in items for raw_id in item.deduped_from_ids if raw_id))
+    return strongest.model_copy(
+        update={
+            "title": title or strongest.title,
+            "summary": summary or strongest.summary,
+            "source_links": source_links,
+            "source_names": source_names,
+            "deduped_from_ids": deduped_from_ids,
+        }
+    )
 
 
 def classify_event(event: DedupedEvent, llm_client: LLMClient) -> CategoryResponse:

@@ -107,8 +107,8 @@ def build_score_reason(assessments: list[CriterionAssessment], raw_score: float,
 
 def criteria_prompt_text() -> str:
     lines = ["Scoring criteria. Return exactly one assessment for each id:"]
-    for criterion_id, weight in SCORING_CRITERIA.items():
-        lines.append(f"- {criterion_id}: {weight:g} points")
+    for criterion_id in SCORING_CRITERIA:
+        lines.append(f"- {criterion_id}")
     lines.extend(
         [
             "",

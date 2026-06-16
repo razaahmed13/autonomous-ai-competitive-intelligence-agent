@@ -186,10 +186,18 @@ def test_rss_fetcher_requests_identity_encoding_to_avoid_brotli_decode_errors(mo
 
 def test_default_sources_include_multiple_independent_rss_sources():
     rss_sources = [source for source in DEFAULT_SOURCES if source.type is SourceType.RSS]
+    source_by_name = {source.name: source for source in DEFAULT_SOURCES}
 
-    assert len(DEFAULT_SOURCES) >= 5
+    assert len(DEFAULT_SOURCES) == 23
     assert len({source.name for source in DEFAULT_SOURCES}) == len(DEFAULT_SOURCES)
-    assert len(rss_sources) >= 5
+    assert len({source.url for source in DEFAULT_SOURCES}) == len(DEFAULT_SOURCES)
+    assert len(rss_sources) == 22
+    assert source_by_name["The Verge AI"].url == "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
+    assert source_by_name["Ars Technica AI"].url == "https://arstechnica.com/tag/artificial-intelligence/feed/"
+    assert source_by_name["WIRED AI"].url == "https://www.wired.com/feed/tag/ai/latest/rss"
+    assert source_by_name["AWS Machine Learning Blog"].url == "https://aws.amazon.com/blogs/machine-learning/feed/"
+    assert source_by_name["Hugging Face Daily Papers"].type is SourceType.WEB
+    assert source_by_name["Hugging Face Daily Papers"].url == "https://huggingface.co/papers"
 
 
 def test_collect_sources_orchestrates_fetch_and_storage(tmp_path):
@@ -199,6 +207,7 @@ def test_collect_sources_orchestrates_fetch_and_storage(tmp_path):
         source_type=SourceType.RSS,
         title="Pipeline item",
         url="https://example.com/pipeline-item",
+        published_at=datetime.now(UTC),
         raw_summary="summary",
     )
 

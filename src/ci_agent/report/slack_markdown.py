@@ -9,19 +9,17 @@ def render_slack_markdown(brief: DailyBrief) -> str:
     lines = [
         "*Daily AI Competitive Intelligence Brief*",
         f"_Date: {brief.date}_",
-        f"_{brief.selected_count} high-signal developments selected from {brief.candidate_count} candidates across {brief.source_count} sources._",
         "",
         "━━━━━━━━━━━━━━━━━━━━",
         "",
     ]
     for index, item in enumerate(brief.items, start=1):
+        source_suffix = _format_title_sources(item.source_links, item.source_names)
         lines.extend(
             [
-                f"*{index}. [{item.importance_score:.1f}/10] {item.title}*",
-                f"• *Category:* {item.category.value}",
+                f"*{index}. {item.title}{source_suffix}*",
                 f"• *Summary:* {item.summary}",
                 f"• *Why it matters:* {item.why_it_matters}",
-                f"• *Sources:* {_format_sources(item.source_links, item.source_names)}",
                 "",
             ]
         )
@@ -38,9 +36,11 @@ def write_slack_markdown(brief: DailyBrief, path: str | Path) -> str:
     return markdown
 
 
-def _format_sources(links: list[str], names: list[str]) -> str:
+def _format_title_sources(links: list[str], names: list[str]) -> str:
     formatted = []
     for index, link in enumerate(links):
         label = names[index] if index < len(names) else f"Source {index + 1}"
         formatted.append(f"<{link}|{label}>")
-    return ", ".join(formatted)
+    if not formatted:
+        return ""
+    return f" [{', '.join(formatted)}]"

@@ -185,3 +185,4 @@ def test_cli_exposes_force_option():
 
     assert "--force" in result.stdout
     assert "already-reported" in result.stdout
+    assert "--max-items" not in result.stdout

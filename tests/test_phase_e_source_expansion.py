@@ -17,22 +17,20 @@ REQUIRED_PHASE_E_SOURCE_NAMES = [
     "Microsoft AI Blog",
     "NVIDIA Technical Blog",
     "Hugging Face Blog",
+    "AWS Machine Learning Blog",
+    "Hugging Face Daily Papers",
     "Mistral AI News",
     "Cohere Blog",
     "LangChain Blog",
     "LlamaIndex Blog",
     "CrewAI Blog",
-    "Zapier AI Blog",
-    "n8n Blog",
-    "arXiv cs.AI",
-    "arXiv cs.LG",
-    "arXiv cs.CL",
     "Papers with Code",
-    "Berkeley BAIR Blog",
-    "Stanford HAI Blog",
     "MIT CSAIL News",
     "TechCrunch AI",
     "VentureBeat AI",
+    "The Verge AI",
+    "Ars Technica AI",
+    "WIRED AI",
     "The Decoder",
     "a16z AI",
 ]
@@ -49,7 +47,7 @@ def _raw_item(title: str, *, published_at: datetime | None) -> RawSourceItem:
     )
 
 
-def test_collection_filter_skips_items_with_published_at_older_than_24_hours():
+def test_collection_filter_skips_stale_published_items_and_keeps_missing_dates():
     now = datetime(2026, 6, 15, 12, tzinfo=UTC)
     fresh = _raw_item("Fresh item", published_at=now - timedelta(hours=23, minutes=59))
     stale = _raw_item("Stale item", published_at=now - timedelta(hours=24, minutes=1))
@@ -96,10 +94,22 @@ def test_collect_sources_filters_stale_published_items_before_db_insert(tmp_path
     ]
 
 
-def test_default_sources_are_exact_phase_e_batch_of_25():
+def test_default_sources_are_exact_refined_batch_of_23():
+    source_by_name = {source.name: source for source in DEFAULT_SOURCES}
+
     assert [source.name for source in DEFAULT_SOURCES] == REQUIRED_PHASE_E_SOURCE_NAMES
-    assert len(DEFAULT_SOURCES) == 25
-    assert all(source.type is SourceType.RSS for source in DEFAULT_SOURCES)
-    assert len({source.name for source in DEFAULT_SOURCES}) == 25
-    assert len({source.url for source in DEFAULT_SOURCES}) == 25
+    assert len(DEFAULT_SOURCES) == 23
+    assert len({source.name for source in DEFAULT_SOURCES}) == 23
+    assert len({source.url for source in DEFAULT_SOURCES}) == 23
     assert all(source.url.startswith("https://") for source in DEFAULT_SOURCES)
+    assert source_by_name["AWS Machine Learning Blog"].type is SourceType.RSS
+    assert source_by_name["AWS Machine Learning Blog"].url == "https://aws.amazon.com/blogs/machine-learning/feed/"
+    assert source_by_name["Hugging Face Daily Papers"].type is SourceType.WEB
+    assert source_by_name["Hugging Face Daily Papers"].url == "https://huggingface.co/papers"
+    assert "Zapier AI Blog" not in source_by_name
+    assert "n8n Blog" not in source_by_name
+    assert "Berkeley BAIR Blog" not in source_by_name
+    assert "Stanford HAI Blog" not in source_by_name
+    assert "arXiv cs.AI" not in source_by_name
+    assert "arXiv cs.LG" not in source_by_name
+    assert "arXiv cs.CL" not in source_by_name

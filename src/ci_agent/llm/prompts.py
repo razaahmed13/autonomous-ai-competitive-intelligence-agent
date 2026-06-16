@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from ..models import DedupedEvent, IntelligenceCategory
+from ..models import DedupedEvent, IntelligenceCategory, IntelligenceItem
 from ..scoring import criteria_prompt_text
 
 CATEGORY_DEFINITIONS = """
@@ -23,6 +23,49 @@ def build_categorization_system_prompt() -> str:
 
 def build_analysis_system_prompt() -> str:
     return "You are a source-grounded competitive intelligence analyst for Neodym. Return valid strict JSON only."
+
+
+def build_brief_deduplication_system_prompt() -> str:
+    return "You deduplicate selected competitive intelligence brief items. Return valid strict JSON only."
+
+
+def build_brief_deduplication_prompt(items: list[IntelligenceItem]) -> str:
+    compact_items = [
+        {
+            "id": item.content_fingerprint,
+            "title": item.title,
+            "summary": item.summary,
+            "importance_score": item.importance_score,
+            "source_links": item.source_links,
+        }
+        for item in items
+    ]
+    return f"""
+Deduplicate only the selected daily brief items below for presentation.
+
+Rules:
+- Identify items that are almost the same event/update or clearly discuss the same thing.
+- Merge only real duplicates or near-duplicates; do not merge merely because items share a broad theme.
+- If an item does not resemble any other selected item, keep it exactly as-is by returning it as a single-item group; do not rewrite its title or summary.
+- For merged groups only, provide the strongest, clearest title and summary.
+- Return every input id exactly once across all groups.
+- Do not add, remove, or invent source links.
+
+Selected items JSON:
+{json.dumps(compact_items, ensure_ascii=False, indent=2)}
+
+Return JSON exactly in this shape:
+{{
+  "groups": [
+    {{
+      "item_ids": ["one or more input ids"],
+      "title": "required only when item_ids has more than one id",
+      "summary": "required only when item_ids has more than one id",
+      "reason": "short duplicate/non-duplicate rationale"
+    }}
+  ]
+}}
+""".strip()
 
 
 def build_categorization_prompt(event: DedupedEvent) -> str:

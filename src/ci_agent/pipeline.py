@@ -9,7 +9,8 @@ from .config import Settings, load_neodym_profile
 from .database import Database
 from .deduplication import deduplicate_raw_items
 from .fetchers.rss import fetch_rss_source
-from .intelligence import generate_intelligence_items
+from .fetchers.web import fetch_web_source
+from .intelligence import deduplicate_brief_items_with_llm, generate_intelligence_items
 from .llm.client import LLMClient, build_llm_client
 from .models import IntelligenceItem, RawSourceItem, SourceConfig, SourceType
 from .report.json_report import write_json_report
@@ -17,6 +18,7 @@ from .report.slack_markdown import write_slack_markdown
 from .sources import DEFAULT_SOURCES
 
 Fetcher = Callable[[SourceConfig, Settings], list[RawSourceItem]]
+MIN_DAILY_BRIEF_IMPORTANCE_SCORE = 7.0
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,8 @@ class BriefResult:
 def default_fetcher(source: SourceConfig, settings: Settings) -> list[RawSourceItem]:
     if source.type is SourceType.RSS:
         return fetch_rss_source(source, settings)
+    if source.type is SourceType.WEB:
+        return fetch_web_source(source, settings)
     raise ValueError(f"Unsupported source type: {source.type}")
 
 
@@ -58,7 +62,7 @@ def filter_collectable_items_by_published_at(
     now: datetime | None = None,
     max_age_hours: int = 24,
 ) -> list[RawSourceItem]:
-    """Keep only fresh published items while preserving missing-date items."""
+    """Keep missing-date items plus published items inside the freshness window."""
     now = now or datetime.now(UTC)
     if now.tzinfo is None:
         now = now.replace(tzinfo=UTC)
@@ -115,7 +119,7 @@ def generate_brief(
     llm_client: LLMClient | None = None,
     json_path: str | Path = "daily_brief.json",
     markdown_path: str | Path = "daily_brief.md",
-    max_items: int = 5,
+    max_items: int | None = None,
     force: bool = False,
 ) -> BriefResult:
     settings = settings or Settings.from_env()
@@ -135,18 +139,20 @@ def generate_brief(
     eligible_events = [
         event for event in events if force or event.content_fingerprint not in reported_fingerprints
     ]
-    intelligence_items = generate_intelligence_items(
+    analyzed_items = generate_intelligence_items(
         eligible_events,
         llm_client=llm_client,
-        max_items=max_items,
+        max_items=None,
         neodym_profile=neodym_profile,
     )
+    intelligence_items = _select_daily_brief_items(analyzed_items)
     reported_count = 0 if force else database.store_reported_intelligence_items(
-        _reported_item_records(intelligence_items)
+        _reported_item_records(analyzed_items)
     )
+    brief_items = deduplicate_brief_items_with_llm(intelligence_items, llm_client)
     source_count = len({item.source_name for item in raw_items})
     brief = write_json_report(
-        intelligence_items,
+        brief_items,
         json_path,
         source_count=source_count,
         candidate_count=len(events),
@@ -156,12 +162,21 @@ def generate_brief(
         source_count=source_count,
         raw_item_count=len(raw_items),
         candidate_count=len(events),
-        selected_count=len(intelligence_items),
+        selected_count=len(brief_items),
         skipped_reported_count=len(reported_fingerprints),
         reported_count=reported_count,
         json_path=Path(json_path),
         markdown_path=Path(markdown_path),
     )
+
+
+def _select_daily_brief_items(items: list[IntelligenceItem]) -> list[IntelligenceItem]:
+    if not items:
+        return []
+    threshold_items = [item for item in items if item.importance_score >= MIN_DAILY_BRIEF_IMPORTANCE_SCORE]
+    if threshold_items:
+        return threshold_items
+    return items[:1]
 
 
 def _reported_item_records(items: list[IntelligenceItem]) -> list[dict]:

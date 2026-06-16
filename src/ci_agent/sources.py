@@ -40,6 +40,16 @@ DEFAULT_SOURCES: list[SourceConfig] = [
         url="https://huggingface.co/blog/feed.xml",
     ),
     SourceConfig(
+        name="AWS Machine Learning Blog",
+        type=SourceType.RSS,
+        url="https://aws.amazon.com/blogs/machine-learning/feed/",
+    ),
+    SourceConfig(
+        name="Hugging Face Daily Papers",
+        type=SourceType.WEB,
+        url="https://huggingface.co/papers",
+    ),
+    SourceConfig(
         name="Mistral AI News",
         type=SourceType.RSS,
         url="https://mistral.ai/rss.xml",
@@ -65,44 +75,9 @@ DEFAULT_SOURCES: list[SourceConfig] = [
         url="https://blog.crewai.com/rss/",
     ),
     SourceConfig(
-        name="Zapier AI Blog",
-        type=SourceType.RSS,
-        url="https://zapier.com/blog/feeds/latest/",
-    ),
-    SourceConfig(
-        name="n8n Blog",
-        type=SourceType.RSS,
-        url="https://blog.n8n.io/rss/",
-    ),
-    SourceConfig(
-        name="arXiv cs.AI",
-        type=SourceType.RSS,
-        url="https://export.arxiv.org/rss/cs.AI",
-    ),
-    SourceConfig(
-        name="arXiv cs.LG",
-        type=SourceType.RSS,
-        url="https://export.arxiv.org/rss/cs.LG",
-    ),
-    SourceConfig(
-        name="arXiv cs.CL",
-        type=SourceType.RSS,
-        url="https://export.arxiv.org/rss/cs.CL",
-    ),
-    SourceConfig(
         name="Papers with Code",
         type=SourceType.RSS,
         url="https://paperswithcode.com/",
-    ),
-    SourceConfig(
-        name="Berkeley BAIR Blog",
-        type=SourceType.RSS,
-        url="https://bair.berkeley.edu/blog/feed.xml",
-    ),
-    SourceConfig(
-        name="Stanford HAI Blog",
-        type=SourceType.RSS,
-        url="https://hai.stanford.edu/news",
     ),
     SourceConfig(
         name="MIT CSAIL News",
@@ -118,6 +93,21 @@ DEFAULT_SOURCES: list[SourceConfig] = [
         name="VentureBeat AI",
         type=SourceType.RSS,
         url="https://venturebeat.com/category/ai/feed",
+    ),
+    SourceConfig(
+        name="The Verge AI",
+        type=SourceType.RSS,
+        url="https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+    ),
+    SourceConfig(
+        name="Ars Technica AI",
+        type=SourceType.RSS,
+        url="https://arstechnica.com/tag/artificial-intelligence/feed/",
+    ),
+    SourceConfig(
+        name="WIRED AI",
+        type=SourceType.RSS,
+        url="https://www.wired.com/feed/tag/ai/latest/rss",
     ),
     SourceConfig(
         name="The Decoder",
