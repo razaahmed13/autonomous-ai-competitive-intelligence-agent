@@ -59,8 +59,6 @@ def analysis_response(title: str, status: str = "strong") -> dict:
         "title": title,
         "summary": f"{title} summary.",
         "why_it_matters": f"{title} broader significance.",
-        "why_it_matters_to_neodym": f"{title} matters to Neodym.",
-        "recommended_action": f"Review {title}.",
         "scoring_assessments": scoring_assessments(status),
     }
 
@@ -93,7 +91,7 @@ def test_llm_only_categorization_prompt_contains_allowed_categories_and_no_rules
     assert "NVIDIA launches new inference platform" in prompt
 
 
-def test_analysis_prompt_requires_grounded_neodym_specific_output():
+def test_analysis_prompt_omits_removed_neodym_action_outputs():
     event = deduplicate_raw_items([raw_item("Anthropic releases Claude update", "https://anthropic.com/claude")])[0]
 
     prompt = build_analysis_prompt(
@@ -102,13 +100,15 @@ def test_analysis_prompt_requires_grounded_neodym_specific_output():
         neodym_profile="Neodym prioritizes production-grade AI agents and measurable ROI.",
     )
 
-    assert "Why It Matters to Neodym" in prompt
+    assert "Why It Matters to Neodym" not in prompt
+    assert "why_it_matters_to_neodym" not in prompt
+    assert "Recommended Action" not in prompt
+    assert "recommended_action" not in prompt
     assert "production-grade AI agents and measurable ROI" in prompt
     assert "Do not return a numeric importance score" in prompt
     assert "neodym_relevance" in prompt
     assert "missing: No source-grounded evidence supports this criterion." in prompt
     assert "Do not assign strong or excellent unless the source context directly supports the criterion." in prompt
-    assert "Recommended Action" in prompt
     assert "Do not invent facts" in prompt
     assert "https://anthropic.com/claude" in prompt
 
@@ -151,8 +151,6 @@ def test_analysis_retries_when_llm_returns_incomplete_scoring_assessments():
                 "title": "OpenAI releases major model",
                 "summary": "OpenAI released a major model.",
                 "why_it_matters": "It may shift market expectations.",
-                "why_it_matters_to_neodym": "Neodym should evaluate roadmap implications.",
-                "recommended_action": "Run a competitive capability review.",
                 "scoring_assessments": scoring_assessments("strong")[:2],
             },
             analysis_response("OpenAI releases major model", "excellent"),
@@ -175,16 +173,12 @@ def test_generate_intelligence_items_skips_event_when_scoring_stays_malformed_af
                 "title": "OpenAI releases major model",
                 "summary": "OpenAI released a major model.",
                 "why_it_matters": "It may shift market expectations.",
-                "why_it_matters_to_neodym": "Neodym should evaluate roadmap implications.",
-                "recommended_action": "Run a competitive capability review.",
                 "scoring_assessments": scoring_assessments("strong")[:2],
             },
             {
                 "title": "OpenAI releases major model",
                 "summary": "OpenAI released a major model.",
                 "why_it_matters": "It may shift market expectations.",
-                "why_it_matters_to_neodym": "Neodym should evaluate roadmap implications.",
-                "recommended_action": "Run a competitive capability review.",
                 "scoring_assessments": scoring_assessments("strong")[:2],
             },
         ]
@@ -294,9 +288,12 @@ def test_report_writers_generate_json_and_slack_markdown(tmp_path):
     assert data["items"][0]["importance_score"] == 10.0
     assert data["items"][0]["raw_score"] == 100.0
     assert data["items"][0]["source_links"] == ["https://openai.com/model"]
+    assert "why_it_matters_to_neodym" not in data["items"][0]
+    assert "recommended_action" not in data["items"][0]
     assert "*Daily AI Competitive Intelligence Brief*" in markdown
     assert "*1. [10.0/10] OpenAI releases major model*" in markdown
-    assert "*Why it matters to Neodym:* OpenAI releases major model matters to Neodym." in md_path.read_text()
+    assert "Why it matters to Neodym" not in md_path.read_text()
+    assert "Recommended action" not in md_path.read_text()
 
 
 def test_slack_markdown_is_presentable_message_without_internal_methodology_or_dividers(tmp_path):
@@ -318,7 +315,8 @@ def test_slack_markdown_is_presentable_message_without_internal_methodology_or_d
     assert "\n---\n" not in markdown
     assert "━━━━━━━━" in markdown
     assert "• *Category:* Model Release" in markdown
-    assert "• *Recommended action:*" in markdown
+    assert "• *Recommended action:*" not in markdown
+    assert "• *Why it matters to Neodym:*" not in markdown
 
 
 def test_generate_brief_pipeline_writes_both_outputs(tmp_path):

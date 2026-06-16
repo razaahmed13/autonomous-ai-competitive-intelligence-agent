@@ -8,7 +8,6 @@ Build a recurring intelligence workflow that helps a founder, engineer, or produ
 
 - What happened
 - Why it matters
-- Why it matters to Neodym
 - What action should be considered
 
 The goal is **not** to aggregate news. The goal is to identify what matters, explain why it matters, and provide actionable intelligence.
@@ -45,8 +44,6 @@ Each selected intelligence item must include:
 - Score Reason
 - Summary
 - Why It Matters
-- Why It Matters to Neodym
-- Recommended Action
 - Source Links
 
 Items without source links must not appear in the final report.

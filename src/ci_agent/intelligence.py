@@ -30,8 +30,6 @@ class AnalysisResponse(BaseModel):
     title: str
     summary: str
     why_it_matters: str
-    why_it_matters_to_neodym: str
-    recommended_action: str
     scoring_assessments: list[CriterionAssessment]
 
 
@@ -59,8 +57,6 @@ def generate_intelligence_items(
             score_reason=build_score_reason(analysis.scoring_assessments, raw_score, importance_score),
             summary=analysis.summary,
             why_it_matters=analysis.why_it_matters,
-            why_it_matters_to_neodym=analysis.why_it_matters_to_neodym,
-            recommended_action=analysis.recommended_action,
             scoring_assessments=analysis.scoring_assessments,
             source_links=event.source_links,
             source_names=list(dict.fromkeys(source_item.source_name for source_item in event.source_items)),

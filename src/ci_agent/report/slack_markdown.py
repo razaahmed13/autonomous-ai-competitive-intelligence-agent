@@ -21,8 +21,6 @@ def render_slack_markdown(brief: DailyBrief) -> str:
                 f"• *Category:* {item.category.value}",
                 f"• *Summary:* {item.summary}",
                 f"• *Why it matters:* {item.why_it_matters}",
-                f"• *Why it matters to Neodym:* {item.why_it_matters_to_neodym}",
-                f"• *Recommended action:* {item.recommended_action}",
                 f"• *Sources:* {_format_sources(item.source_links, item.source_names)}",
                 "",
             ]

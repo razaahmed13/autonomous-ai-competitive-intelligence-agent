@@ -131,15 +131,13 @@ class IntelligenceItem(BaseModel):
     score_reason: str
     summary: str
     why_it_matters: str
-    why_it_matters_to_neodym: str
-    recommended_action: str
     scoring_assessments: list[CriterionAssessment]
     source_links: list[str]
     source_names: list[str] = Field(default_factory=list)
     deduped_from_ids: list[str] = Field(default_factory=list)
     content_fingerprint: str
 
-    @field_validator("title", "score_reason", "summary", "why_it_matters", "why_it_matters_to_neodym", "recommended_action", "content_fingerprint")
+    @field_validator("title", "score_reason", "summary", "why_it_matters", "content_fingerprint")
     @classmethod
     def required_intelligence_text(cls, value: str) -> str:
         value = _normalized_text(value)

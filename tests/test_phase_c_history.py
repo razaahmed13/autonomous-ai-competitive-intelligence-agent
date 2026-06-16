@@ -55,8 +55,6 @@ def analysis_response(title: str, status: str = "strong") -> dict:
         "title": title,
         "summary": f"{title} summary.",
         "why_it_matters": f"{title} broader significance.",
-        "why_it_matters_to_neodym": f"{title} matters to Neodym.",
-        "recommended_action": f"Review {title}.",
         "scoring_assessments": scoring_assessments(status),
     }
 

@@ -22,7 +22,6 @@ What happened
 
 Why it matters
 
-Why it matters to Neodym
 
 What action should be considered
 
@@ -88,9 +87,7 @@ Summary
 
 Why It Matters
 
-Why It Matters to Neodym
 
-Recommended Action
 
 Source Links
 

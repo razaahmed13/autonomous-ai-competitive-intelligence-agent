@@ -58,7 +58,6 @@ Rules:
 - Use only the provided source content and links.
 - Every final item must remain source-grounded.
 - Keep writing concise and executive-readable.
-- Recommended Action must be practical and aligned to Neodym's consulting business.
 
 Neodym profile:
 {neodym_profile}
@@ -80,8 +79,6 @@ Return JSON exactly in this shape:
   "title": "concise title",
   "summary": "what happened",
   "why_it_matters": "broader significance",
-  "why_it_matters_to_neodym": "Why It Matters to Neodym",
-  "recommended_action": "Recommended Action",
   "scoring_assessments": [
     {{
       "id": "neodym_relevance",

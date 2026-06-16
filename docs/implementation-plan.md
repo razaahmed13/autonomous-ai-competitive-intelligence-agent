@@ -16,7 +16,6 @@ Build a daily AI competitive intelligence system for Neodym that:
 4. Produces a high-signal daily brief that explains:
    - What happened
    - Why it matters
-   - Why it matters to Neodym
    - What action should be considered
 5. Generates:
    - `daily_brief.json`
@@ -79,8 +78,6 @@ Each selected item must include:
 - Score Reason
 - Summary
 - Why It Matters
-- Why It Matters to Neodym
-- Recommended Action
 - Source Links
 
 Items without at least one source link must not appear in the final report.
@@ -348,8 +345,6 @@ importance_score: int
 score_reason: str
 summary: str
 why_it_matters: str
-why_it_matters_to_neodym: str
-recommended_action: str
 source_links: list[str]
 source_names: list[str]
 deduped_from_ids: list[str]
@@ -751,8 +746,6 @@ For each selected event, produce:
 - Score Reason
 - Summary
 - Why It Matters
-- Why It Matters to Neodym
-- Recommended Action
 - Source Links
 
 ### LLM Role
@@ -768,7 +761,6 @@ The prompt should require:
 3. Every item must include at least one source link.
 4. Explain Neodym relevance specifically.
 5. Keep writing concise and executive-readable.
-6. Recommended actions must be practical.
 7. Return strict JSON matching the schema.
 
 ### Neodym Working Assumption
@@ -886,8 +878,6 @@ Expected shape:
       "score_reason": "Example reason",
       "summary": "Example summary",
       "why_it_matters": "Example broader impact",
-      "why_it_matters_to_neodym": "Example Neodym-specific relevance",
-      "recommended_action": "Example action",
       "source_links": ["https://example.com"]
     }
   ]
@@ -907,8 +897,6 @@ Generated from 8 sources. Selected 7 high-signal developments.
 *1. [9/10] Example Title*
 *Category:* Model Release
 *Why it matters:* ...
-*Why it matters to Neodym:* ...
-*Recommended action:* ...
 *Sources:* <https://example.com|Source Name>
 
 ---
@@ -1140,7 +1128,6 @@ Explain LLM usage in:
 - Summarization
 - Importance scoring
 - Ranking support
-- Recommended actions
 
 #### 7. Scoring Methodology
 
@@ -1293,8 +1280,6 @@ Highlight:
 
 - Importance scores
 - Why it matters
-- Why it matters to Neodym
-- Recommended action
 - Source links
 
 #### 5. Show Evals — 1 minute
@@ -1437,8 +1422,6 @@ Success criteria:
 
 - LLM-only categories are valid and reasonable.
 - Summaries are concise.
-- “Why it matters to Neodym” is specific.
-- Recommended actions are practical.
 - Scores have clear reasons.
 
 ### Milestone 4: Historical Duplicate Prevention
@@ -1570,7 +1553,6 @@ Mitigation:
 
 Mitigation:
 
-- Encode Neodym-specific relevance assumptions.
 - Force recommended actions to be practical.
 - Score low if Neodym relevance is weak.
 

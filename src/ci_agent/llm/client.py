@@ -62,8 +62,6 @@ class OfflineDemoLLMClient(LLMClient):
             "title": title,
             "summary": f"{title} was identified from public AI sources.",
             "why_it_matters": "This development may affect AI product expectations, technical direction, or market positioning.",
-            "why_it_matters_to_neodym": "Neodym should review whether this changes assumptions about agents, model capabilities, or AI infrastructure.",
-            "recommended_action": "Review the linked source and decide whether a product, research, or competitive follow-up is needed.",
             "scoring_assessments": [
                 {
                     "id": criterion_id,

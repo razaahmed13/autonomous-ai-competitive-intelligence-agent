@@ -87,7 +87,6 @@ Neodym competes on measurable value, affordability, speed, and production execut
 
 ## Report Guidance
 
-For "Why It Matters to Neodym", explain the practical connection to Neodym's consulting model. Prefer concrete implications such as:
 
 - This could become a client-facing recommendation.
 - This may reduce build cost or delivery time.
@@ -95,5 +94,3 @@ For "Why It Matters to Neodym", explain the practical connection to Neodym's con
 - This creates a new automation opportunity for clients.
 - This affects how Neodym should position ROI, reliability, or affordability.
 - This warrants a proof-of-concept, client advisory note, benchmark, or internal playbook update.
-
-Recommended actions should be practical and consulting-oriented: test a tool, update a client-facing roadmap, benchmark a model, prepare an advisory note, adjust vendor recommendations, add a delivery pattern to an internal playbook, or monitor for enterprise adoption.
