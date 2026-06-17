@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import json
-from typing import Any
-
-import httpx
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+from typing import Any, Callable
 
 from ..config import Settings
 from ..scoring import SCORING_CRITERIA
+
+Runner = Callable[..., subprocess.CompletedProcess[str]]
 
 
 class LLMClient:
@@ -14,34 +18,66 @@ class LLMClient:
         raise NotImplementedError
 
 
-class OpenAICompatibleLLMClient(LLMClient):
-    def __init__(self, settings: Settings):
-        if not settings.ai_api_key:
-            raise ValueError("AI_API_KEY is required for live LLM intelligence generation")
-        self.api_key = settings.ai_api_key
-        self.base_url = (settings.ai_base_url or "https://api.openai.com/v1").rstrip("/")
-        self.model = settings.ai_model or "gpt-4o-mini"
+class CodexCliLLMClient(LLMClient):
+    """Approved Codex CLI transport for JSON-only LLM calls.
+
+    Uses `codex exec --output-last-message` so stdout progress/event noise does
+    not contaminate the JSON payload we parse.
+    """
+
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        runner: Runner = subprocess.run,
+        output_dir: str | Path | None = None,
+    ):
+        self.command = "codex"
         self.timeout = settings.request_timeout_seconds
+        self.runner = runner
+        self.output_dir = Path(output_dir) if output_dir is not None else None
 
     def complete_json(self, *, system_prompt: str, user_prompt: str) -> dict[str, Any]:
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "response_format": {"type": "json_object"},
-        }
-        response = httpx.post(
-            f"{self.base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-            json=payload,
-            timeout=self.timeout,
-        )
-        response.raise_for_status()
-        data = response.json()
-        content = data["choices"][0]["message"]["content"]
-        return json.loads(content)
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".json",
+            prefix="codex-last-message-",
+            dir=self.output_dir,
+            delete=False,
+        ) as output_file:
+            output_path = Path(output_file.name)
+
+        command = [
+            self.command,
+            "exec",
+            "--skip-git-repo-check",
+            "--sandbox",
+            "read-only",
+            "--color",
+            "never",
+            "--output-last-message",
+            str(output_path),
+            "-",
+        ]
+        prompt = _build_codex_json_prompt(system_prompt=system_prompt, user_prompt=user_prompt)
+        try:
+            completed = self.runner(
+                command,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+                env=_codex_subprocess_env(),
+            )
+            if completed.returncode != 0:
+                stderr = (completed.stderr or completed.stdout or "Codex CLI exited with a non-zero status.").strip()
+                raise RuntimeError(f"Codex CLI failed: {stderr}")
+            content = output_path.read_text(encoding="utf-8").strip()
+            if not content:
+                raise RuntimeError("Codex CLI did not write a final message to --output-last-message.")
+            return _loads_json_message(content)
+        finally:
+            output_path.unlink(missing_ok=True)
 
 
 class OfflineDemoLLMClient(LLMClient):
@@ -67,7 +103,7 @@ class OfflineDemoLLMClient(LLMClient):
                     "id": criterion_id,
                     "status": status,
                     "evidence": f"Offline demo assessment for {criterion_id} based on the supplied title and source context.",
-                    "reason": "Use AI_API_KEY for source-grounded live assessment.",
+                    "reason": "Use AI_MODEL=codex-cli for source-grounded live assessment.",
                 }
                 for criterion_id in SCORING_CRITERIA
             ],
@@ -77,7 +113,56 @@ class OfflineDemoLLMClient(LLMClient):
 def build_llm_client(settings: Settings) -> LLMClient:
     if (settings.ai_model or "").lower() == "offline-demo":
         return OfflineDemoLLMClient()
-    return OpenAICompatibleLLMClient(settings)
+    return CodexCliLLMClient(settings)
+
+
+def _build_codex_json_prompt(*, system_prompt: str, user_prompt: str) -> str:
+    return f"""
+You are being used as a JSON-only LLM transport for an automated competitive-intelligence workflow.
+Return only one valid JSON object. Do not include Markdown, commentary, code fences, or tool calls.
+
+<SYSTEM_PROMPT>
+{system_prompt}
+</SYSTEM_PROMPT>
+
+<USER_PROMPT>
+{user_prompt}
+</USER_PROMPT>
+""".strip()
+
+
+def _codex_subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    for key in [
+        "AI_API_KEY",
+        "AI_BASE_URL",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+    ]:
+        env.pop(key, None)
+    return env
+
+
+def _loads_json_message(content: str) -> dict[str, Any]:
+    stripped = content.strip()
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        stripped = "\n".join(lines).strip()
+    try:
+        data = json.loads(stripped)
+    except json.JSONDecodeError:
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise
+        data = json.loads(stripped[start : end + 1])
+    if not isinstance(data, dict):
+        raise ValueError("Codex CLI final message must be a JSON object.")
+    return data
 
 
 def _extract_line_value(text: str, label: str) -> str | None:

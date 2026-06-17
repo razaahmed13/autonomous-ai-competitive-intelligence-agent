@@ -106,11 +106,13 @@ Collect raw source items into SQLite:
 uv run python run.py collect
 ```
 
-Generate intelligence reports with live LLM credentials:
+Generate intelligence reports with the approved Codex CLI stack. Codex CLI should already be installed and authenticated on the machine:
 
 ```bash
-AI_API_KEY=... AI_MODEL=... uv run python run.py brief
+AI_MODEL=codex-cli uv run python run.py brief
 ```
+
+`AI_API_KEY` and `AI_BASE_URL` may remain in local variable files for compatibility, but the workflow does not use them for LLM calls.
 
 For local smoke testing without live LLM credentials, use the deterministic offline demo client:
 
@@ -192,7 +194,7 @@ The current implementation supports:
 - RSS fetching and parsing
 - Collection freshness filtering using `published_at` when available
 - Deterministic deduplication
-- OpenAI-compatible LLM client and offline demo client
+- Codex CLI LLM client and offline demo client
 - LLM-only categorization prompt
 - Source-grounded analysis prompt
 - Importance ranking
