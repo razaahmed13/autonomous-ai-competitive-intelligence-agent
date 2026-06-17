@@ -156,6 +156,12 @@ def test_analysis_prompt_omits_removed_neodym_action_outputs():
     assert "Do not return a numeric importance score" in prompt
     assert "neodym_relevance" in prompt
     assert "missing: No source-grounded evidence supports this criterion." in prompt
+    assert "very_weak: Only a bare, indirect, or speculative signal supports this criterion." in prompt
+    assert "weak: Some source-grounded relevance, but the evidence or expected impact is limited." in prompt
+    assert "partial: Clear source-grounded relevance, but the signal is incomplete, narrow, early, or not yet decisive." in prompt
+    assert "good: Solid source-grounded relevance with plausible practical or strategic impact." in prompt
+    assert "strong: Clear, important, well-supported relevance with meaningful impact for this criterion." in prompt
+    assert "excellent: Exceptional, source-grounded relevance with immediate, strategic, or unusually high impact for this criterion." in prompt
     assert "Do not assign strong or excellent unless the source context directly supports the criterion." in prompt
     assert "ai_developer_relevance" in prompt
     assert "foundation models, agent frameworks, coding tools, AI infrastructure, evaluation systems, and AI developer tooling" in prompt
