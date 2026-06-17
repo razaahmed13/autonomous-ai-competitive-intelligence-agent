@@ -157,7 +157,10 @@ def test_analysis_prompt_omits_removed_neodym_action_outputs():
     assert "neodym_relevance" in prompt
     assert "missing: No source-grounded evidence supports this criterion." in prompt
     assert "Do not assign strong or excellent unless the source context directly supports the criterion." in prompt
+    assert "ai_developer_relevance" in prompt
+    assert "foundation models, agent frameworks, coding tools, AI infrastructure, evaluation systems, and AI developer tooling" in prompt
     assert "Do not assign strong or excellent for market_impact, strategic_business_signal, urgency, or client_roi_potential" in prompt
+    assert "generic funding, acquisition, valuation, or business news" in prompt
     assert "large acquisition, funding round, IPO, valuation change, pricing war, market-share shift" in prompt
     assert "Do not invent facts" in prompt
     assert "https://anthropic.com/claude" in prompt
@@ -280,6 +283,7 @@ def test_market_moving_business_event_scores_above_vendor_tutorial_with_status_r
                 "why_it_matters": "A very large AI acquisition changes competitive positioning.",
                 "scoring_assessments": custom_scoring_assessments(
                     {
+                        "ai_developer_relevance": "strong",
                         "market_impact": "excellent",
                         "strategic_business_signal": "excellent",
                         "neodym_relevance": "strong",
@@ -318,6 +322,116 @@ def test_market_moving_business_event_scores_above_vendor_tutorial_with_status_r
     assert items[0].importance_score >= 8.0
     assert items[1].title == "Building AI Agents for AR Glasses with NVIDIA XR AI"
     assert items[1].importance_score < 7.0
+
+
+def test_ai_developer_ecosystem_item_scores_above_generic_business_news():
+    foundation_model_event, generic_funding_event = deduplicate_raw_items(
+        [
+            raw_item(
+                "Anthropic releases Claude Code agent framework for enterprise developers",
+                "https://anthropic.com/claude-code-agent-framework",
+                "Anthropic",
+                summary="Anthropic released an agent framework and coding toolchain for enterprise AI developers.",
+            ),
+            raw_item(
+                "Generic AI startup raises $35M Series B",
+                "https://example.com/startup-raises-series-b",
+                "Example Business",
+                summary="An AI startup raised a normal Series B round without disclosed platform, model, or developer ecosystem impact.",
+            ),
+        ]
+    )
+    llm = SequencedLLMClient(
+        [
+            {"category": "Infrastructure", "confidence": 0.95, "reason": "Agent framework and coding toolchain."},
+            {
+                "title": "Anthropic releases Claude Code agent framework for enterprise developers",
+                "summary": "Anthropic released developer-facing agent framework capabilities.",
+                "why_it_matters": "It directly affects AI developers building agentic systems.",
+                "scoring_assessments": custom_scoring_assessments(
+                    {
+                        "ai_developer_relevance": "excellent",
+                        "market_impact": "good",
+                        "strategic_business_signal": "good",
+                        "neodym_relevance": "strong",
+                        "client_roi_potential": "good",
+                        "agent_automation_relevance": "excellent",
+                        "technical_novelty": "strong",
+                        "urgency": "good",
+                        "source_credibility": "strong",
+                    }
+                ),
+            },
+            {"category": "Startup Activity", "confidence": 0.9, "reason": "Routine funding announcement."},
+            {
+                "title": "Generic AI startup raises $35M Series B",
+                "summary": "A startup raised funding without unusual strategic impact.",
+                "why_it_matters": "Funding alone is a weaker signal for developer-facing AI priorities.",
+                "scoring_assessments": custom_scoring_assessments(
+                    {
+                        "ai_developer_relevance": "weak",
+                        "market_impact": "good",
+                        "strategic_business_signal": "good",
+                        "neodym_relevance": "partial",
+                        "client_roi_potential": "weak",
+                        "agent_automation_relevance": "weak",
+                        "technical_novelty": "weak",
+                        "urgency": "weak",
+                        "source_credibility": "strong",
+                    }
+                ),
+            },
+        ]
+    )
+
+    items = generate_intelligence_items([foundation_model_event, generic_funding_event], llm_client=llm, max_items=None)
+
+    assert items[0].title == "Anthropic releases Claude Code agent framework for enterprise developers"
+    assert items[0].importance_score >= 7.0
+    assert items[1].title == "Generic AI startup raises $35M Series B"
+    assert items[1].importance_score < 7.0
+
+
+def test_unusually_high_impact_business_story_can_still_rank_highly():
+    event = deduplicate_raw_items(
+        [
+            raw_item(
+                "NVIDIA acquires major AI inference platform for $60B",
+                "https://example.com/nvidia-inference-acquisition",
+                "Example Business",
+                summary="NVIDIA acquired a major AI inference platform for $60B, changing distribution and platform control for AI developers.",
+            )
+        ]
+    )[0]
+    item = generate_intelligence_items(
+        [event],
+        llm_client=SequencedLLMClient(
+            [
+                {"category": "Competitor Update", "confidence": 0.95, "reason": "Major strategic platform acquisition."},
+                {
+                    "title": "NVIDIA acquires major AI inference platform for $60B",
+                    "summary": "NVIDIA acquired an AI inference platform at unusual scale.",
+                    "why_it_matters": "The deal changes AI infrastructure platform control and developer distribution.",
+                    "scoring_assessments": custom_scoring_assessments(
+                        {
+                            "ai_developer_relevance": "strong",
+                            "market_impact": "excellent",
+                            "strategic_business_signal": "excellent",
+                            "neodym_relevance": "strong",
+                            "client_roi_potential": "good",
+                            "agent_automation_relevance": "good",
+                            "technical_novelty": "partial",
+                            "urgency": "strong",
+                            "source_credibility": "strong",
+                        }
+                    ),
+                },
+            ]
+        ),
+        max_items=None,
+    )[0]
+
+    assert item.importance_score >= 7.0
 
 
 def test_category_retries_before_falling_back_to_other():
