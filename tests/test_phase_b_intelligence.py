@@ -21,7 +21,7 @@ from ci_agent.pipeline import BriefResult, generate_brief
 from ci_agent.ranking import rank_intelligence_items
 from ci_agent.report.json_report import write_json_report
 from ci_agent.report.slack_markdown import render_slack_markdown, write_slack_markdown
-from ci_agent.scoring import SCORING_CRITERIA, calculate_importance_score, calculate_raw_score
+from ci_agent.scoring import CriterionStatus, SCORING_CRITERIA, calculate_importance_score, calculate_raw_score
 
 
 class SequencedLLMClient(LLMClient):
@@ -60,6 +60,18 @@ def scoring_assessments(status: str = "strong") -> list[dict]:
     ]
 
 
+def custom_scoring_assessments(statuses: dict[str, str]) -> list[dict]:
+    return [
+        {
+            "id": criterion_id,
+            "status": statuses.get(criterion_id, CriterionStatus.PARTIAL.value),
+            "evidence": f"Evidence for {criterion_id}.",
+            "reason": f"Reason for {criterion_id}.",
+        }
+        for criterion_id in SCORING_CRITERIA
+    ]
+
+
 def analysis_response(title: str, status: str = "strong") -> dict:
     return {
         "title": title,
@@ -83,6 +95,36 @@ def test_deterministic_deduplication_merges_similar_titles_and_preserves_sources
     assert len(merged.source_items) == 2
     assert merged.source_links == ["https://openai.com/gpt-5", "https://microsoft.com/openai-gpt-5"]
     assert normalize_fingerprint("OpenAI releases GPT-5!") == normalize_fingerprint("openai releases gpt 5")
+
+
+def test_deterministic_deduplication_merges_shared_entities_and_business_event_synonyms():
+    items = [
+        raw_item(
+            "SpaceX is officially buying Cursor for $60 billion",
+            "https://www.theverge.com/spacex-cursor",
+            "The Verge AI",
+        ),
+        raw_item(
+            "SpaceX to acquire Cursor for $60B in stock",
+            "https://techcrunch.com/spacex-cursor",
+            "TechCrunch AI",
+        ),
+        raw_item(
+            "NVIDIA shares Blackwell MLPerf benchmark results",
+            "https://developer.nvidia.com/mlperf",
+            "NVIDIA Technical Blog",
+        ),
+    ]
+
+    events = deduplicate_raw_items(items)
+
+    assert len(events) == 2
+    cursor_event = next(event for event in events if "Cursor" in event.canonical_title)
+    assert len(cursor_event.source_items) == 2
+    assert cursor_event.source_links == [
+        "https://www.theverge.com/spacex-cursor",
+        "https://techcrunch.com/spacex-cursor",
+    ]
 
 
 def test_llm_only_categorization_prompt_contains_allowed_categories_and_no_rules():
@@ -115,6 +157,8 @@ def test_analysis_prompt_omits_removed_neodym_action_outputs():
     assert "neodym_relevance" in prompt
     assert "missing: No source-grounded evidence supports this criterion." in prompt
     assert "Do not assign strong or excellent unless the source context directly supports the criterion." in prompt
+    assert "Do not assign strong or excellent for market_impact, strategic_business_signal, urgency, or client_roi_potential" in prompt
+    assert "large acquisition, funding round, IPO, valuation change, pricing war, market-share shift" in prompt
     assert "Do not invent facts" in prompt
     assert "https://anthropic.com/claude" in prompt
 
@@ -208,6 +252,72 @@ def test_deterministic_scoring_converts_statuses_to_decimal_importance():
 
     assert raw_score == 85.0
     assert importance_score == 8.5
+
+
+def test_market_moving_business_event_scores_above_vendor_tutorial_with_status_rules():
+    business_event, vendor_tutorial = deduplicate_raw_items(
+        [
+            raw_item(
+                "SpaceX to acquire Cursor for $60B in stock",
+                "https://techcrunch.com/spacex-cursor",
+                "TechCrunch AI",
+                summary="SpaceX is buying AI coding startup Cursor for $60B to compete in enterprise AI.",
+            ),
+            raw_item(
+                "Building AI Agents for AR Glasses with NVIDIA XR AI",
+                "https://developer.nvidia.com/xr-ai",
+                "NVIDIA Technical Blog",
+                summary="NVIDIA explains how developers can build AI agents for AR and XR devices.",
+            ),
+        ]
+    )
+    llm = SequencedLLMClient(
+        [
+            {"category": "Startup Activity", "confidence": 0.95, "reason": "Large AI acquisition."},
+            {
+                "title": "SpaceX to acquire Cursor for $60B",
+                "summary": "SpaceX is buying Cursor for $60B.",
+                "why_it_matters": "A very large AI acquisition changes competitive positioning.",
+                "scoring_assessments": custom_scoring_assessments(
+                    {
+                        "market_impact": "excellent",
+                        "strategic_business_signal": "excellent",
+                        "neodym_relevance": "strong",
+                        "client_roi_potential": "good",
+                        "agent_automation_relevance": "partial",
+                        "technical_novelty": "partial",
+                        "urgency": "strong",
+                        "source_credibility": "strong",
+                    }
+                ),
+            },
+            {"category": "Infrastructure", "confidence": 0.85, "reason": "Vendor technical guide."},
+            {
+                "title": "Building AI Agents for AR Glasses with NVIDIA XR AI",
+                "summary": "NVIDIA explains XR AI agent infrastructure.",
+                "why_it_matters": "Useful technical signal, but not a major market-moving update.",
+                "scoring_assessments": custom_scoring_assessments(
+                    {
+                        "market_impact": "partial",
+                        "strategic_business_signal": "partial",
+                        "neodym_relevance": "strong",
+                        "client_roi_potential": "good",
+                        "agent_automation_relevance": "strong",
+                        "technical_novelty": "good",
+                        "urgency": "partial",
+                        "source_credibility": "strong",
+                    }
+                ),
+            },
+        ]
+    )
+
+    items = generate_intelligence_items([business_event, vendor_tutorial], llm_client=llm, max_items=None)
+
+    assert items[0].title == "SpaceX to acquire Cursor for $60B"
+    assert items[0].importance_score >= 8.0
+    assert items[1].title == "Building AI Agents for AR Glasses with NVIDIA XR AI"
+    assert items[1].importance_score < 7.0
 
 
 def test_category_retries_before_falling_back_to_other():

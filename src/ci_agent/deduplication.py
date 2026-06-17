@@ -8,13 +8,39 @@ from .models import DedupedEvent, RawSourceItem
 
 _STOPWORDS = {
     "a", "an", "and", "are", "as", "for", "from", "in", "into", "is", "new", "of", "on", "the", "to", "with",
+    "officially", "stock", "shares", "details", "update", "latest",
+}
+
+_BUSINESS_EVENT_TOKENS = {
+    "acquire", "fund", "funding", "ipo", "valuation", "price", "pricing", "market", "share", "merger", "raise",
+}
+
+_BUSINESS_SYNONYMS = {
+    "acquires": "acquire",
+    "acquired": "acquire",
+    "acquisition": "acquire",
+    "buy": "acquire",
+    "buying": "acquire",
+    "buys": "acquire",
+    "bought": "acquire",
+    "bet": "acquire",
+    "bets": "acquire",
+    "raises": "raise",
+    "raised": "raise",
 }
 
 
 def normalize_fingerprint(text: str) -> str:
-    normalized = re.sub(r"[^a-z0-9]+", " ", text.lower())
-    tokens = [_stem_token(token) for token in normalized.split() if token and token not in _STOPWORDS]
+    text = re.sub(r"\$(\d+(?:\.\d+)?)\s*billion\b", r"\1b", text.lower())
+    text = re.sub(r"\$(\d+(?:\.\d+)?)\s*bn\b", r"\1b", text)
+    normalized = re.sub(r"[^a-z0-9]+", " ", text)
+    tokens = [_normalize_token(token) for token in normalized.split() if token and token not in _STOPWORDS]
     return " ".join(tokens)
+
+
+def _normalize_token(token: str) -> str:
+    token = _BUSINESS_SYNONYMS.get(token, token)
+    return _stem_token(token)
 
 
 def _stem_token(token: str) -> str:
@@ -66,7 +92,27 @@ def _items_match(left: RawSourceItem, right: RawSourceItem, threshold: float) ->
     right_fp = normalize_fingerprint(right.title)
     if left_fp == right_fp:
         return True
+    if _business_event_match(left_fp, right_fp):
+        return True
     return _token_similarity(left_fp, right_fp) >= threshold
+
+
+def _business_event_match(left: str, right: str) -> bool:
+    left_tokens = set(left.split())
+    right_tokens = set(right.split())
+    if not left_tokens or not right_tokens:
+        return False
+    shared_tokens = left_tokens & right_tokens
+    shared_business_tokens = shared_tokens & _BUSINESS_EVENT_TOKENS
+    shared_entity_tokens = {
+        token
+        for token in shared_tokens
+        if token not in _BUSINESS_EVENT_TOKENS and not re.fullmatch(r"\d+(?:\.\d+)?b", token)
+    }
+    has_money_overlap = any(re.fullmatch(r"\d+(?:\.\d+)?b", token) for token in shared_tokens)
+    return bool(shared_business_tokens) and (
+        len(shared_entity_tokens) >= 2 or (len(shared_entity_tokens) >= 1 and has_money_overlap)
+    )
 
 
 def _token_similarity(left: str, right: str) -> float:

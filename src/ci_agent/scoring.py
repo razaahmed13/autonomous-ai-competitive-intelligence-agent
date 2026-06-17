@@ -31,14 +31,14 @@ class CriterionAssessment(BaseModel):
 
 
 SCORING_CRITERIA: dict[str, float] = {
-    "neodym_relevance": 25,
-    "market_impact": 18,
-    "technical_novelty": 15,
-    "agent_automation_relevance": 12,
+    "market_impact": 30,
+    "strategic_business_signal": 20,
+    "neodym_relevance": 15,
     "client_roi_potential": 10,
-    "urgency": 8,
-    "source_credibility": 6,
-    "actionability": 6,
+    "agent_automation_relevance": 8,
+    "technical_novelty": 7,
+    "urgency": 5,
+    "source_credibility": 5,
 }
 
 STATUS_MULTIPLIERS: dict[CriterionStatus, float] = {
@@ -126,6 +126,13 @@ def criteria_prompt_text() -> str:
             "- Do not assign strong or excellent unless the source context directly supports the criterion.",
             "- Prefer lower statuses when evidence is thin, indirect, or speculative.",
             "- Evidence must explain what source detail supports the selected status.",
+            "",
+            "Market-impact calibration:",
+            "- For vendor tutorials, how-to posts, benchmark writeups, product walkthroughs, and technical explainers: Do not assign strong or excellent for market_impact, strategic_business_signal, urgency, or client_roi_potential unless the source directly shows major adoption, revenue impact, enterprise rollout, large customer demand, pricing shift, or strategic market movement.",
+            "- Such technical/vendor items may receive good or strong for technical_novelty or agent_automation_relevance when directly supported, but business-impact criteria should usually stay partial or good at most.",
+            "- For a large acquisition, funding round, IPO, valuation change, pricing war, market-share shift, or large enterprise/customer adoption event, assign strong or excellent for market_impact when the source shows clear market movement.",
+            "- Assign strong or excellent for strategic_business_signal when an event changes competitive positioning, platform economics, pricing, distribution, or AI adoption behavior.",
+            "- Assign strong urgency when competitors, customers, or implementation teams are likely to react soon.",
         ]
     )
     return "\n".join(lines)
