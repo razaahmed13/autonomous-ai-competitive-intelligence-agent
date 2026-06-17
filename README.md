@@ -114,6 +114,14 @@ AI_MODEL=codex-cli uv run python run.py brief
 
 `AI_API_KEY` and `AI_BASE_URL` may remain in local variable files for compatibility, but the workflow does not use them for LLM calls.
 
+For a small test run on only the latest raw items fetched in the last 24 hours:
+
+```bash
+AI_MODEL=codex-cli uv run python run.py brief --raw-items 5 --force \
+  --json-output /tmp/test_daily_brief.json \
+  --markdown-output /tmp/test_daily_brief.md
+```
+
 For local smoke testing without live LLM credentials, use the deterministic offline demo client:
 
 ```bash
@@ -199,6 +207,7 @@ The current implementation supports:
 - Source-grounded analysis prompt
 - Importance ranking
 - Historical tracking for reported intelligence fingerprints
+- `--raw-items` brief test runs over the latest N raw items fetched inside the lookback window
 - `--force` regeneration for already-reported candidate events
 - JSON and Slack-ready Markdown report generation
 - Optional Slack `chat.postMessage` delivery via env vars / `--send-slack`

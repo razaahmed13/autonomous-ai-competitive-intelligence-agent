@@ -10,6 +10,13 @@ from .slack import send_slack_markdown_report
 from .sources import DEFAULT_SOURCES
 
 
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AI competitive intelligence agent")
     parser.add_argument(
@@ -22,6 +29,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json-output", default="daily_brief.json", help="Path for machine-readable JSON report.")
     parser.add_argument("--markdown-output", default="daily_brief.md", help="Path for Slack-ready Markdown report.")
     parser.add_argument("--max-items", type=int, default=None, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--raw-items",
+        type=_positive_int,
+        default=None,
+        help="Process only the latest N raw items fetched within the brief lookback window.",
+    )
     parser.add_argument(
         "--force",
         action="store_true",
@@ -81,6 +94,7 @@ def main(argv: list[str] | None = None) -> int:
                 json_path=args.json_output,
                 markdown_path=args.markdown_output,
                 max_items=args.max_items,
+                raw_item_limit=args.raw_items,
                 force=args.force,
             )
         except (RuntimeError, ValueError) as exc:

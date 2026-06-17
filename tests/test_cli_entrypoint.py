@@ -14,3 +14,4 @@ def test_run_py_help_imports_local_package():
 
     assert result.returncode == 0
     assert "AI competitive intelligence agent" in result.stdout
+    assert "--raw-items" in result.stdout

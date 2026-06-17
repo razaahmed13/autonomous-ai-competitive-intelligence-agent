@@ -872,3 +872,50 @@ def test_generate_brief_uses_fetched_at_lookback_when_loading_from_database(tmp_
     assert result.candidate_count == 1
     assert "Recent OpenAI model update" in md_path.read_text()
     assert "Old OpenAI model update" not in md_path.read_text()
+
+
+def test_generate_brief_raw_item_limit_processes_latest_recent_database_items(tmp_path):
+    db_path = tmp_path / "intelligence.db"
+    json_path = tmp_path / "daily_brief.json"
+    md_path = tmp_path / "daily_brief.md"
+    db = Database(db_path)
+    now = datetime.now(UTC)
+    latest = raw_item("Latest OpenAI model update", "https://openai.com/latest", "OpenAI")
+    latest.fetched_at = now - timedelta(minutes=5)
+    second_latest = raw_item("Second Anthropic agent launch", "https://anthropic.com/second", "Anthropic")
+    second_latest.fetched_at = now - timedelta(minutes=10)
+    third_recent = raw_item("Third Google AI update", "https://google.com/third", "Google")
+    third_recent.fetched_at = now - timedelta(minutes=15)
+    stale = raw_item("Stale Meta AI update", "https://meta.com/stale", "Meta")
+    stale.fetched_at = now - timedelta(hours=48)
+    db.upsert_raw_items([third_recent, latest, stale, second_latest])
+    llm = SequencedLLMClient(
+        [
+            {"category": "Model Release", "confidence": 0.95, "reason": "Latest model release."},
+            analysis_response("Latest OpenAI model update", "excellent"),
+            {"category": "Competitor Update", "confidence": 0.95, "reason": "Agent launch."},
+            analysis_response("Second Anthropic agent launch", "excellent"),
+        ]
+    )
+
+    result = generate_brief(
+        settings=Settings(database_path=db_path, brief_lookback_hours=24),
+        database=db,
+        llm_client=llm,
+        json_path=json_path,
+        markdown_path=md_path,
+        raw_item_limit=2,
+        force=True,
+    )
+
+    markdown = md_path.read_text()
+    assert result.raw_item_count == 2
+    assert result.candidate_count == 2
+    assert len(llm.calls) == 5
+    combined_prompts = "\n".join(user_prompt for _, user_prompt in llm.calls)
+    assert "Third Google AI update" not in combined_prompts
+    assert "Stale Meta AI update" not in combined_prompts
+    assert "Latest OpenAI model update" in markdown
+    assert "Second Anthropic agent launch" in markdown
+    assert "Third Google AI update" not in markdown
+    assert "Stale Meta AI update" not in markdown

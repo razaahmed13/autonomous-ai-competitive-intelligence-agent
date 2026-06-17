@@ -115,6 +115,7 @@ def collect_sources(
 def generate_brief(
     *,
     raw_items: list[RawSourceItem] | None = None,
+    raw_item_limit: int | None = None,
     settings: Settings | None = None,
     database: Database | None = None,
     llm_client: LLMClient | None = None,
@@ -128,7 +129,7 @@ def generate_brief(
     database.initialize()
     raw_items = raw_items if raw_items is not None else database.list_recent_raw_items(
         hours=settings.brief_lookback_hours,
-        limit=200,
+        limit=raw_item_limit or 200,
     )
     llm_client = llm_client or build_llm_client(settings)
     neodym_profile = load_neodym_profile(settings.neodym_profile_path)
