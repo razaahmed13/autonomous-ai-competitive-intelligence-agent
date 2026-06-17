@@ -19,6 +19,7 @@ from .sources import DEFAULT_SOURCES
 
 Fetcher = Callable[[SourceConfig, Settings], list[RawSourceItem]]
 MIN_DAILY_BRIEF_IMPORTANCE_SCORE = 7.0
+SOURCE_DIVERSITY_EXCEPTION_IMPORTANCE_SCORE = 8.5
 
 
 @dataclass(frozen=True)
@@ -175,8 +176,36 @@ def _select_daily_brief_items(items: list[IntelligenceItem]) -> list[Intelligenc
         return []
     threshold_items = [item for item in items if item.importance_score >= MIN_DAILY_BRIEF_IMPORTANCE_SCORE]
     if threshold_items:
-        return threshold_items
+        return _diversify_daily_brief_items_by_source(threshold_items)
     return items[:1]
+
+
+def _diversify_daily_brief_items_by_source(items: list[IntelligenceItem]) -> list[IntelligenceItem]:
+    """Keep one selected brief item per source unless an item is very high-signal.
+
+    This is a presentation-only selection step applied after scoring/thresholding and
+    before LLM brief dedupe. It intentionally does not affect database persistence.
+    """
+    selected: list[IntelligenceItem] = []
+    represented_sources: set[str] = set()
+
+    for item in items:
+        source_key = _primary_source_key(item)
+        is_source_represented = source_key in represented_sources
+        is_high_score_exception = item.importance_score >= SOURCE_DIVERSITY_EXCEPTION_IMPORTANCE_SCORE
+        if not is_source_represented or is_high_score_exception:
+            selected.append(item)
+            represented_sources.add(source_key)
+
+    return selected
+
+
+def _primary_source_key(item: IntelligenceItem) -> str:
+    if item.source_names:
+        return item.source_names[0].strip().lower()
+    if item.source_links:
+        return item.source_links[0].strip().lower()
+    return item.content_fingerprint
 
 
 def _reported_item_records(items: list[IntelligenceItem]) -> list[dict]:

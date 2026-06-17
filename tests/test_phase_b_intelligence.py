@@ -560,8 +560,11 @@ def test_llm_brief_dedupe_invalid_response_falls_back_to_original_items():
     assert deduped == items
 
 
-def test_generate_brief_selects_all_items_with_importance_score_at_least_seven(tmp_path):
-    raw_items = [raw_item(f"AI development {index}", f"https://example.com/item-{index}") for index in range(6)]
+def test_generate_brief_selects_all_items_with_importance_score_at_least_seven_from_distinct_sources(tmp_path):
+    raw_items = [
+        raw_item(f"AI development {index}", f"https://example.com/item-{index}", f"Source {index}")
+        for index in range(6)
+    ]
     statuses = ["excellent", "strong", "good", "partial", "weak", "missing"]
     llm_responses = []
     for item, status in zip(raw_items, statuses, strict=True):
@@ -600,6 +603,52 @@ def test_generate_brief_selects_all_items_with_importance_score_at_least_seven(t
     assert "AI development 3" not in markdown
     assert "high-signal developments selected" not in markdown
     assert "candidates across" not in markdown
+
+
+def test_generate_brief_diversifies_selected_items_to_one_per_source_with_high_score_exception(tmp_path):
+    raw_items = [
+        raw_item("Example source flagship model launch", "https://example.com/flagship", "Example AI"),
+        raw_item("Example source routine integration", "https://example.com/integration", "Example AI"),
+        raw_item("Example source major agent update", "https://example.com/agent", "Example AI"),
+        raw_item("Independent lab benchmark release", "https://independent.ai/benchmark", "Independent AI"),
+    ]
+    statuses = ["excellent", "good", "strong", "good"]
+    llm_responses = []
+    for item, status in zip(raw_items, statuses, strict=True):
+        llm_responses.extend(
+            [
+                {"category": "Other", "confidence": 0.9, "reason": "Relevant AI development."},
+                analysis_response(item.title, status),
+            ]
+        )
+    # Invalid dedupe response intentionally falls back to the diversified item list so
+    # this test verifies the deterministic selection boundary, not LLM behavior.
+    llm_responses.append({"groups": []})
+
+    result = generate_brief(
+        raw_items=raw_items,
+        settings=Settings(database_path=tmp_path / "intelligence.db"),
+        llm_client=SequencedLLMClient(llm_responses),
+        json_path=tmp_path / "daily_brief.json",
+        markdown_path=tmp_path / "daily_brief.md",
+    )
+
+    data = json.loads(result.json_path.read_text())
+    titles = [item["title"] for item in data["items"]]
+    assert result.reported_count == 4
+    assert result.selected_count == 3
+    assert titles == [
+        "Example source flagship model launch",
+        "Example source major agent update",
+        "Independent lab benchmark release",
+    ]
+    assert "Example source routine integration" not in titles
+    with sqlite3.connect(tmp_path / "intelligence.db") as conn:
+        stored_titles = [
+            row[0]
+            for row in conn.execute("SELECT canonical_title FROM intelligence_items ORDER BY canonical_title").fetchall()
+        ]
+    assert stored_titles == sorted(item.title for item in raw_items)
 
 
 def test_generate_brief_runs_llm_dedupe_only_for_json_markdown_not_database(tmp_path):
