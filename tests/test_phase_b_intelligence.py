@@ -169,6 +169,11 @@ def test_analysis_prompt_omits_removed_neodym_action_outputs():
     assert "generic funding, acquisition, valuation, or business news" in prompt
     assert "large acquisition, funding round, IPO, valuation change, pricing war, market-share shift" in prompt
     assert "Do not invent facts" in prompt
+    assert "summary: 8-10 words only" in prompt
+    assert "why_it_matters: 4-6 words only" in prompt
+    assert "No company definitions or basic/common-sense information unless needed" in prompt
+    assert "Use one currency only, prefer USD" in prompt
+    assert "Remove repeated or obvious details" in prompt
     assert "https://anthropic.com/claude" in prompt
 
 

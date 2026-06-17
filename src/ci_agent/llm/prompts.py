@@ -101,6 +101,11 @@ Rules:
 - Use only the provided source content and links.
 - Every final item must remain source-grounded.
 - Keep writing concise and executive-readable.
+- summary: 8-10 words only.
+- why_it_matters: 4-6 words only.
+- No company definitions or basic/common-sense information unless needed.
+- Use one currency only, prefer USD.
+- Remove repeated or obvious details.
 
 Neodym profile:
 {neodym_profile}
