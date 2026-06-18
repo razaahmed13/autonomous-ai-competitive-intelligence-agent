@@ -18,10 +18,8 @@ REQUIRED_PHASE_E_SOURCE_NAMES = [
     "NVIDIA Technical Blog",
     "Hugging Face Blog",
     "AWS Machine Learning Blog",
-    "Hugging Face Daily Papers",
     "Mistral AI News",
     "Cohere Blog",
-    "LangChain Blog",
     "LlamaIndex Blog",
     "CrewAI Blog",
     "Papers with Code",
@@ -94,18 +92,18 @@ def test_collect_sources_filters_stale_published_items_before_db_insert(tmp_path
     ]
 
 
-def test_default_sources_are_exact_refined_batch_of_23():
+def test_default_sources_are_exact_refined_batch_of_21():
     source_by_name = {source.name: source for source in DEFAULT_SOURCES}
 
     assert [source.name for source in DEFAULT_SOURCES] == REQUIRED_PHASE_E_SOURCE_NAMES
-    assert len(DEFAULT_SOURCES) == 23
-    assert len({source.name for source in DEFAULT_SOURCES}) == 23
-    assert len({source.url for source in DEFAULT_SOURCES}) == 23
+    assert len(DEFAULT_SOURCES) == 21
+    assert len({source.name for source in DEFAULT_SOURCES}) == 21
+    assert len({source.url for source in DEFAULT_SOURCES}) == 21
     assert all(source.url.startswith("https://") for source in DEFAULT_SOURCES)
     assert source_by_name["AWS Machine Learning Blog"].type is SourceType.RSS
     assert source_by_name["AWS Machine Learning Blog"].url == "https://aws.amazon.com/blogs/machine-learning/feed/"
-    assert source_by_name["Hugging Face Daily Papers"].type is SourceType.WEB
-    assert source_by_name["Hugging Face Daily Papers"].url == "https://huggingface.co/papers"
+    assert "Hugging Face Daily Papers" not in source_by_name
+    assert "LangChain Blog" not in source_by_name
     assert "Zapier AI Blog" not in source_by_name
     assert "n8n Blog" not in source_by_name
     assert "Berkeley BAIR Blog" not in source_by_name

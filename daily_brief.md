@@ -1,14 +1,14 @@
 *Daily AI Competitive Intelligence Brief*
-_Date: 2026-06-17_
+_Date: 2026-06-18_
 
 ━━━━━━━━━━━━━━━━━━━━
 
-*1. SpaceX $60B Cursor acquisition [<https://the-decoder.com/spacex-bets-60-billion-on-cursor-to-catch-openai-and-anthropic/|The Decoder>, <https://www.theverge.com/ai-artificial-intelligence/950571/spacex-is-officially-buying-cursor-for-60-billion|The Verge AI>, <https://techcrunch.com/2026/06/16/spacex-to-acquire-cursor-for-60b-in-stock-days-after-blockbuster-ipo/|TechCrunch AI>]*
-• *Summary:* SpaceX will buy Cursor for $60 billion in stock
-• *Why it matters:* AI coding market consolidation
+*1. GLM-5.2 narrows coding gap with closed models [<https://the-decoder.com/zhipu-ais-glm-5-2-closes-in-on-closed-source-leaders-in-coding-marathons/|The Decoder>]*
+• *Summary:* Zhipu released GLM-5.2, matching top closed models on coding tasks
+• *Why it matters:* Open models pressure enterprise AI vendor choices
 
 ━━━━━━━━━━━━━━━━━━━━
 
-*2. AWS Adds Bedrock Guardrails API for Agentic Apps [<https://aws.amazon.com/blogs/machine-learning/safeguard-your-agentic-ai-applications-with-the-amazon-bedrock-guardrails-invokeguardrailchecks-api/|AWS Machine Learning Blog>]*
-• *Summary:* AWS introduced granular guardrail checks for agentic AI applications
-• *Why it matters:* Improves production AI safety controls
+*2. AWS expands Bedrock AgentCore for production agent operations [<https://aws.amazon.com/blogs/machine-learning/new-in-amazon-bedrock-agentcore-build-agents-with-broader-knowledge-and-continuous-learning/|AWS Machine Learning Blog>]*
+• *Summary:* AWS added Bedrock AgentCore capabilities for knowledge, debugging, governance, and learning
+• *Why it matters:* Supports safer production deployment of enterprise agents

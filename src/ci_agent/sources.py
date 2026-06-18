@@ -45,11 +45,6 @@ DEFAULT_SOURCES: list[SourceConfig] = [
         url="https://aws.amazon.com/blogs/machine-learning/feed/",
     ),
     SourceConfig(
-        name="Hugging Face Daily Papers",
-        type=SourceType.WEB,
-        url="https://huggingface.co/papers",
-    ),
-    SourceConfig(
         name="Mistral AI News",
         type=SourceType.RSS,
         url="https://mistral.ai/rss.xml",
@@ -58,11 +53,6 @@ DEFAULT_SOURCES: list[SourceConfig] = [
         name="Cohere Blog",
         type=SourceType.RSS,
         url="https://cohere.com/blog",
-    ),
-    SourceConfig(
-        name="LangChain Blog",
-        type=SourceType.RSS,
-        url="https://www.langchain.com/blog/rss.xml",
     ),
     SourceConfig(
         name="LlamaIndex Blog",
