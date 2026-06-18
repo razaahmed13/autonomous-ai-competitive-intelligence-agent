@@ -25,7 +25,7 @@ from ci_agent.scoring import CriterionStatus, SCORING_CRITERIA, calculate_import
 
 
 class SequencedLLMClient(LLMClient):
-    def __init__(self, responses: list[dict]):
+    def __init__(self, responses: list[dict | Exception]):
         self.responses = responses
         self.calls: list[tuple[str, str]] = []
 
@@ -33,7 +33,10 @@ class SequencedLLMClient(LLMClient):
         self.calls.append((system_prompt, user_prompt))
         if not self.responses:
             raise AssertionError("No fake LLM response left")
-        return self.responses.pop(0)
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def raw_item(title: str, url: str, source: str = "Example", summary: str = "summary") -> RawSourceItem:
@@ -207,6 +210,20 @@ def test_generate_intelligence_items_uses_llm_categorization_and_analysis():
     assert "consulting delivery impact" in llm.calls[1][1]
 
 
+def test_generate_intelligence_items_prints_scored_progress_for_each_item(capsys):
+    events = deduplicate_raw_items([raw_item("Anthropic releases Claude update", "https://anthropic.com/claude", "Anthropic")])
+    llm = SequencedLLMClient(
+        [
+            {"category": "Model Release", "confidence": 0.94, "reason": "The event is a model capability release."},
+            analysis_response("Anthropic releases Claude update", "strong"),
+        ]
+    )
+
+    generate_intelligence_items(events, llm_client=llm)
+
+    assert "[Anthropic releases Claude update] from [Anthropic] got scored." in capsys.readouterr().out
+
+
 def test_analysis_retries_when_llm_returns_incomplete_scoring_assessments():
     event = deduplicate_raw_items([raw_item("OpenAI releases major model", "https://openai.com/model", "OpenAI")])[0]
     llm = SequencedLLMClient(
@@ -251,6 +268,48 @@ def test_generate_intelligence_items_skips_event_when_scoring_stays_malformed_af
     items = generate_intelligence_items([event], llm_client=llm)
 
     assert items == []
+
+
+def test_generate_intelligence_items_retries_transient_llm_failure_once():
+    event = deduplicate_raw_items([raw_item("OpenAI releases major model", "https://openai.com/model", "OpenAI")])[0]
+    llm = SequencedLLMClient(
+        [
+            RuntimeError("Codex CLI timed out"),
+            {"category": "Model Release", "confidence": 0.95, "reason": "Major model release."},
+            analysis_response("OpenAI releases major model", "strong"),
+        ]
+    )
+
+    items = generate_intelligence_items([event], llm_client=llm)
+
+    assert len(items) == 1
+    assert items[0].title == "OpenAI releases major model"
+    assert len(llm.calls) == 3
+    assert llm.calls[0] == llm.calls[1]
+
+
+def test_generate_intelligence_items_skips_event_after_retried_llm_failure_and_continues():
+    failed_event, successful_event = deduplicate_raw_items(
+        [
+            raw_item("OpenAI releases major model", "https://openai.com/model", "OpenAI"),
+            raw_item("Anthropic updates Claude", "https://anthropic.com/claude", "Anthropic"),
+        ]
+    )
+    llm = SequencedLLMClient(
+        [
+            {"category": "Model Release", "confidence": 0.95, "reason": "Major model release."},
+            RuntimeError("Codex CLI timed out"),
+            RuntimeError("Codex CLI timed out again"),
+            {"category": "Model Release", "confidence": 0.91, "reason": "Model update."},
+            analysis_response("Anthropic updates Claude", "strong"),
+        ]
+    )
+
+    items = generate_intelligence_items([failed_event, successful_event], llm_client=llm, max_items=None)
+
+    assert [item.title for item in items] == ["Anthropic updates Claude"]
+    assert len(llm.calls) == 5
+    assert llm.calls[1] == llm.calls[2]
 
 
 def test_deterministic_scoring_converts_statuses_to_decimal_importance():

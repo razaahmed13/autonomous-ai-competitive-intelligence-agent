@@ -55,10 +55,10 @@ def generate_intelligence_items(
 ) -> list[IntelligenceItem]:
     items: list[IntelligenceItem] = []
     for event in events:
-        category = classify_event(event, llm_client)
         try:
+            category = classify_event(event, llm_client)
             analysis = analyze_event(event, category.category, llm_client, neodym_profile=neodym_profile)
-        except (ValidationError, ValueError):
+        except Exception:
             continue
         raw_score = calculate_raw_score(analysis.scoring_assessments)
         importance_score = calculate_importance_score(raw_score)
@@ -77,6 +77,7 @@ def generate_intelligence_items(
             content_fingerprint=event.content_fingerprint,
         )
         items.append(item)
+        print(f"[{item.title}] from [{', '.join(item.source_names)}] got scored.", flush=True)
     ranked_items = rank_intelligence_items(items)
     if max_items is None:
         return ranked_items
@@ -153,14 +154,22 @@ def _merge_brief_items(
     )
 
 
+def _complete_json_with_retry(llm_client: LLMClient, *, system_prompt: str, user_prompt: str) -> dict:
+    try:
+        return llm_client.complete_json(system_prompt=system_prompt, user_prompt=user_prompt)
+    except Exception:
+        return llm_client.complete_json(system_prompt=system_prompt, user_prompt=user_prompt)
+
+
 def classify_event(event: DedupedEvent, llm_client: LLMClient) -> CategoryResponse:
     system_prompt = build_categorization_system_prompt()
     user_prompt = build_categorization_prompt(event)
-    data = llm_client.complete_json(system_prompt=system_prompt, user_prompt=user_prompt)
+    data = _complete_json_with_retry(llm_client, system_prompt=system_prompt, user_prompt=user_prompt)
     try:
         return CategoryResponse.model_validate(data)
     except ValidationError as exc:
-        retry_data = llm_client.complete_json(
+        retry_data = _complete_json_with_retry(
+            llm_client,
             system_prompt=system_prompt,
             user_prompt=_retry_prompt(user_prompt, exc),
         )
@@ -184,11 +193,12 @@ def analyze_event(
 ) -> AnalysisResponse:
     system_prompt = build_analysis_system_prompt()
     user_prompt = build_analysis_prompt(event, category, neodym_profile=neodym_profile)
-    data = llm_client.complete_json(system_prompt=system_prompt, user_prompt=user_prompt)
+    data = _complete_json_with_retry(llm_client, system_prompt=system_prompt, user_prompt=user_prompt)
     try:
         return _validate_analysis_response(data)
     except (ValidationError, ValueError) as exc:
-        retry_data = llm_client.complete_json(
+        retry_data = _complete_json_with_retry(
+            llm_client,
             system_prompt=system_prompt,
             user_prompt=_retry_prompt(user_prompt, exc),
         )
